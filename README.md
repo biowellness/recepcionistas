@@ -19,8 +19,9 @@ base sobre la que se apoya la pantalla de la recepción. Backend **Medplum (FHIR
 | Bots: calcular-cobro · validar-turno · enviar-whatsapp | ✅ + deploy (`npm run deploy:bots`) |
 | Seed del catálogo (idempotente) | ✅ (`--dry-run` sin servidor) |
 | Motor de agenda: Slots + semáforo de salas | ✅ con tests (config provisoria) |
-| Front de recepción (React + Vite) | ✅ esqueleto: login, agenda + semáforo, atención |
-| Harness de tests (casos AC del Anexo A) | ✅ 62 tests |
+| Front de recepción (React + Vite) | ✅ login, agenda + semáforo, atención, reserva de turnos |
+| Reserva de turnos (valida + crea Appointment/Slot) | ✅ bot `bw-reservar-turno` |
+| Harness de tests (casos AC del Anexo A) | ✅ 70 tests |
 | CI (GitHub Actions) | ✅ |
 | Horario + lista definitiva de salas | ✅ confirmado (L-V 08-22, Sáb 08-20; 13 salas) |
 | Contraindicaciones | ⚠️ borrador, pendiente validación médica |
@@ -93,7 +94,8 @@ Pantallas del esqueleto:
   confirmado; la ocupación se lee de Medplum. Autorefresco cada 60 s.
   (No requiere materializar `Slot` libres.)
 - **Atender paciente** — búsqueda por nombre/DNI, banner de seguridad verde/rojo
-  (sin ver la historia clínica) y cobro **calculado por el bot** `calcular-cobro`.
+  (sin ver la historia clínica), **reserva de turnos** (valida + crea vía bot
+  `reservar-turno`) y cobro **calculado por el bot** `calcular-cobro`.
 
 > El cobro requiere los Bots desplegados (`npm run deploy:bots`). Si no están, la
 > pantalla lo avisa con claridad: el front nunca calcula por su cuenta.

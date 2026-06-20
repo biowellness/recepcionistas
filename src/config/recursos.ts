@@ -9,7 +9,7 @@
  * gabinetes Recovery Pro comparten las 2 tumbonas Red Light, por eso van
  * desfasados.
  */
-import type { RecursoFisico } from '../domain/types.js';
+import type { CategoriaServicio, RecursoFisico, TipoRecurso } from '../domain/types.js';
 
 const TUMBONAS_RECOVERY = 'TUMBONAS_RECOVERY';
 
@@ -46,6 +46,25 @@ export const RECURSOS: RecursoFisico[] = [
 export const RECURSOS_POR_CODIGO: ReadonlyMap<string, RecursoFisico> = new Map(
   RECURSOS.map((r) => [r.codigo, r]),
 );
+
+/** Tipo de recurso físico donde se ejecuta cada categoría de servicio. */
+const CATEGORIA_A_TIPO: Record<CategoriaServicio, TipoRecurso> = {
+  HBOT: 'HBOT',
+  IHHT: 'IHHT',
+  RED_LIGHT: 'RED_LIGHT',
+  RECOVERY_PRO: 'RECOVERY_PRO',
+  COMPRESION: 'COMPRESION',
+  CRIO: 'CRIO',
+  IV_THERAPY: 'BOX_CLINICO',
+  TERAPIA_BIOLOGICA: 'BOX_CLINICO',
+  MASAJE_OSTEOPATIA: 'SALA',
+};
+
+/** Recursos físicos donde se puede agendar un servicio de la categoría dada. */
+export function recursosParaCategoria(categoria: CategoriaServicio): RecursoFisico[] {
+  const tipo = CATEGORIA_A_TIPO[categoria];
+  return RECURSOS.filter((r) => r.tipo === tipo);
+}
 
 /**
  * Devuelve true si dos recursos comparten algún equipo (cuello de botella),
