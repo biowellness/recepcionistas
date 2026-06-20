@@ -13,6 +13,7 @@ import type {
   PlanDefinition,
   PlanDefinitionAction,
   Schedule,
+  Slot,
   StructureDefinition,
 } from '@medplum/fhirtypes';
 import type { Servicio } from '../domain/types.js';
@@ -23,6 +24,7 @@ import { PAQUETES } from '../config/paquetes.js';
 import { CONTRAINDICACIONES } from '../config/contraindicaciones.js';
 import { RECURSOS } from '../config/recursos.js';
 import { TC_DEFAULT } from '../config/tipo-cambio.js';
+import type { SlotDescriptor } from '../lib/slots.js';
 import { EXTENSIONES } from '../fhir/extensions.js';
 import { ACCESS_POLICIES } from '../fhir/access-policies.js';
 import { CONFIG_TC_ID, EXT, SYSTEM } from '../fhir/identifiers.js';
@@ -183,6 +185,24 @@ export function buildSchedule(codigo: string): Schedule {
       { url: EXT.recursoFisico, valueString: r.codigo },
       { url: EXT.comparteTumbona, valueBoolean: Boolean(r.comparteCon?.length) },
     ],
+  };
+}
+
+/**
+ * Slot FHIR a partir de un descriptor. Con identifier determinista
+ * (recurso|inicio) para que el seed sea idempotente al regenerar la agenda.
+ */
+export function buildSlot(descriptor: SlotDescriptor, scheduleRef: string): Slot {
+  return {
+    resourceType: 'Slot',
+    identifier: [
+      { system: SYSTEM.recursoCodigo, value: `${descriptor.recursoCodigo}|${descriptor.inicio}` },
+    ],
+    schedule: { reference: scheduleRef },
+    status: 'free',
+    start: descriptor.inicio,
+    end: descriptor.fin,
+    extension: [{ url: EXT.recursoFisico, valueString: descriptor.recursoCodigo }],
   };
 }
 

@@ -10,9 +10,11 @@ una parte del avance; el resto se resuelve en paralelo.
 | 1 | **Horario de atención** (días y franjas) | Genera las franjas (`Slot`) de cada sala. Hoy hay un PLACEHOLDER en `src/config/horario.ts`. | ⏳ Andrés lo pasa |
 | 2 | **Lista definitiva de salas y equipos** | Confirmar/corregir la lista preliminar de 13 (`src/config/recursos.ts`, todas marcadas `provisional`). | ⏳ Andrés lo pasa |
 
-> Mientras tanto: el seed genera `Location` y `Schedule` provisionales y **no
-> genera Slots** (el runner avisa). Al recibir 1 y 2 se actualizan los dos
-> archivos y se habilita la generación de franjas.
+> Mientras tanto: el seed genera `Location` y `Schedule` provisionales. El motor
+> de agenda (`generarSlots` + semáforo `estadoRecurso`) **ya está implementado y
+> testeado**; con `npm run seed -- --with-slots` genera franjas provisionales con
+> el horario placeholder. Al recibir 1 y 2 se actualizan `horario.ts` y
+> `recursos.ts` y las franjas pasan a ser las reales, **sin tocar código**.
 
 ## Catálogo (v9)
 
