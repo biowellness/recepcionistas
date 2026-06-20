@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main, staging, 'claude/**']
+  pull_request:
+    branches: [main, staging]
+
+jobs:
+  verify:
+    name: Typecheck · Tests · Seed (dry-run)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm run test
+
+      - name: Seed (dry-run)
+        run: npm run seed -- --dry-run

@@ -1,0 +1,22 @@
+{
+  "bots": [
+    {
+      "name": "bw-calcular-cobro",
+      "id": "REEMPLAZAR_CON_BOT_ID",
+      "source": "src/bots/calcular-cobro.ts",
+      "dist": "dist/bots/calcular-cobro.js"
+    },
+    {
+      "name": "bw-validar-turno",
+      "id": "REEMPLAZAR_CON_BOT_ID",
+      "source": "src/bots/validar-turno.ts",
+      "dist": "dist/bots/validar-turno.js"
+    },
+    {
+      "name": "bw-enviar-whatsapp",
+      "id": "REEMPLAZAR_CON_BOT_ID",
+      "source": "src/bots/enviar-whatsapp.ts",
+      "dist": "dist/bots/enviar-whatsapp.js"
+    }
+  ]
+}
