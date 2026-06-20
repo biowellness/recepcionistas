@@ -41,7 +41,8 @@ secretaria pueda, en el entorno de prueba:
 
 - [x] ver la agenda del día con las salas y sus estados — motor de **Slots**
       (`generarSlots`) y **semáforo** verde/amarillo/rojo (`estadoRecurso`) listos;
-      falta confirmar horario + lista de salas para los datos reales;
+      horario (L-V 08-22, Sáb 08-20) y las 13 salas confirmados → la agenda real
+      se carga con `npm run seed -- --with-slots`;
 - [x] ver el **banner de contraindicaciones** verde/rojo sin acceder a la historia
       clínica (`bannerSeguridad`, AccessPolicy de recepción);
 - [x] que el sistema **calcule el monto a cobrar** incluido USD→ARS

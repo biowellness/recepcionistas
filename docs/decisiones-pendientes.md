@@ -3,18 +3,15 @@
 Definiciones que dependen de Andrés u otras fuentes. Las **bloqueantes** frenan
 una parte del avance; el resto se resuelve en paralelo.
 
-## Bloqueantes (agenda)
+## Agenda — RESUELTO ✅ (2026-06-20)
 
-| # | Decisión | Por qué | Estado |
-|---|---|---|---|
-| 1 | **Horario de atención** (días y franjas) | Genera las franjas (`Slot`) de cada sala. Hoy hay un PLACEHOLDER en `src/config/horario.ts`. | ⏳ Andrés lo pasa |
-| 2 | **Lista definitiva de salas y equipos** | Confirmar/corregir la lista preliminar de 13 (`src/config/recursos.ts`, todas marcadas `provisional`). | ⏳ Andrés lo pasa |
+| # | Decisión | Definición confirmada por Andrés |
+|---|---|---|
+| 1 | **Horario de atención** | Lunes a Viernes 08:00–22:00 · Sábados 08:00–20:00 · Domingo cerrado · franja de 30 min (`src/config/horario.ts`). |
+| 2 | **Lista definitiva de salas y equipos** | Los 13 recursos del Requerimientos §6.2, confirmados sin cambios (`src/config/recursos.ts`). |
 
-> Mientras tanto: el seed genera `Location` y `Schedule` provisionales. El motor
-> de agenda (`generarSlots` + semáforo `estadoRecurso`) **ya está implementado y
-> testeado**; con `npm run seed -- --with-slots` genera franjas provisionales con
-> el horario placeholder. Al recibir 1 y 2 se actualizan `horario.ts` y
-> `recursos.ts` y las franjas pasan a ser las reales, **sin tocar código**.
+> Para cargar la agenda real en Medplum: `npm run seed -- --with-slots --dias=14`
+> (genera ~4.264 franjas: 13 salas × 2 semanas).
 
 ## Catálogo (v9)
 
