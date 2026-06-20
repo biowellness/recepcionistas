@@ -67,6 +67,8 @@ export const SYSTEM = {
   recursoCodigo: `${BASE}/CodeSystem/recurso-fisico`,
   contraindicacion: `${BASE}/CodeSystem/contraindicacion`,
   medico: `${BASE}/CodeSystem/medico`,
+  /** Identifier de Invoice (para deduplicar señas: manual o por pago MP). */
+  invoice: `${BASE}/Identifier/invoice`,
   config: `${BASE}/Identifier/config`,
 } as const;
 

@@ -2,10 +2,13 @@
  * Helpers compartidos por los bots de agenda (acceden a FHIR; no son "lib pura").
  */
 import type { BotEvent, MedplumClient } from '@medplum/core';
-import type { Communication, Flag } from '@medplum/fhirtypes';
+import type { Appointment, Communication, Flag, Invoice } from '@medplum/fhirtypes';
 import { CONFIG_TC_ID, EXT, SYSTEM } from '../fhir/identifiers.js';
 import { resolverTC } from '../config/tipo-cambio.js';
+import { calcularSenaARS, type ItemCobro } from '../lib/pricing.js';
 import type { ReservaRecurso } from '../lib/reglas-turno.js';
+
+type Secrets = BotEvent['secrets'];
 
 /** TC vigente: del recurso Basic de configuración; si no hay, el default. */
 export async function leerTcVigente(medplum: MedplumClient): Promise<number> {
@@ -20,8 +23,6 @@ export async function leerTcVigente(medplum: MedplumClient): Promise<number> {
   }
   return resolverTC();
 }
-
-type Secrets = BotEvent['secrets'];
 
 /**
  * Envía un WhatsApp por Twilio y registra la Communication. Resuelve el teléfono
@@ -110,4 +111,83 @@ export async function cargarReservasDelDia(medplum: MedplumClient, dia: Date): P
     reservas.push({ recursoCodigo: codigo, inicio: new Date(s.start), fin: new Date(s.end) });
   }
   return reservas;
+}
+
+export interface ResultadoConfirmacion {
+  totalARS: number;
+  senaARS: number;
+  invoiceId?: string;
+  confirmados: number;
+  yaConfirmado: boolean;
+}
+
+/**
+ * Confirma una reserva al cobrarse la seña (50%): emite el Invoice de la seña,
+ * pasa el/los turno(s) a 'booked' (combos: todos los componentes) y dispara el
+ * WhatsApp de confirmación. Idempotente: si ya existe el Invoice de esa seña
+ * (misma clave), no duplica ni reenvía. La usan el cobro manual y el webhook de MP.
+ */
+export async function confirmarReserva(
+  medplum: MedplumClient,
+  secrets: Secrets,
+  opts: { appointmentId: string; medioPago?: string; tc?: number; mpPaymentId?: string },
+): Promise<ResultadoConfirmacion> {
+  const appt = await medplum.readResource('Appointment', opts.appointmentId);
+  const itemTipo = appt.extension?.find((e) => e.url === EXT.itemTipo)?.valueCode;
+  const itemCodigo = appt.extension?.find((e) => e.url === EXT.itemCodigo)?.valueString;
+  if (!itemTipo || !itemCodigo) {
+    throw new Error('El turno no tiene ítem asociado para calcular la seña.');
+  }
+
+  const tc = opts.tc ?? (await leerTcVigente(medplum));
+  const { totalARS, senaARS } = calcularSenaARS([{ tipo: itemTipo as ItemCobro['tipo'], codigo: itemCodigo }], { tc });
+
+  // Idempotencia: una sola seña por clave (pago MP o turno).
+  const invoiceKey = opts.mpPaymentId ? `mp-${opts.mpPaymentId}` : `sena-${opts.appointmentId}`;
+  const existente = await medplum.searchOne('Invoice', `identifier=${SYSTEM.invoice}|${invoiceKey}`);
+  if (existente) {
+    return { totalARS, senaARS, invoiceId: existente.id, confirmados: 0, yaConfirmado: true };
+  }
+
+  // Confirmar el/los turno(s) (todos los componentes del combo si aplica).
+  const comboId = appt.identifier?.find((i) => i.system === SYSTEM.comboCodigo)?.value;
+  const turnos: Appointment[] = comboId
+    ? await medplum.searchResources('Appointment', `identifier=${SYSTEM.comboCodigo}|${comboId}`)
+    : [appt];
+  let confirmados = 0;
+  for (const t of turnos) {
+    if (t.status === 'pending' || t.status === 'proposed') {
+      await medplum.updateResource({ ...t, status: 'booked' });
+      confirmados++;
+    }
+  }
+
+  const pacienteRef = appt.participant?.find((p) => p.actor?.reference?.startsWith('Patient/'))?.actor?.reference;
+  const invoice = await medplum.createResource<Invoice>({
+    resourceType: 'Invoice',
+    status: 'balanced',
+    date: new Date().toISOString(),
+    identifier: [{ system: SYSTEM.invoice, value: invoiceKey }],
+    ...(pacienteRef ? { subject: { reference: pacienteRef } } : {}),
+    lineItem: [
+      {
+        chargeItemCodeableConcept: { text: `Seña 50% · ${appt.description ?? itemCodigo}` },
+        priceComponent: [{ type: 'base', amount: { value: senaARS, currency: 'ARS' } }],
+      },
+    ],
+    totalGross: { value: senaARS, currency: 'ARS' },
+    extension: [
+      { url: EXT.esSena, valueBoolean: true },
+      { url: EXT.tcAplicado, valueDecimal: tc },
+      ...(opts.medioPago ? [{ url: EXT.medioPago, valueCode: opts.medioPago }] : []),
+    ],
+  });
+
+  await enviarWhatsApp(medplum, secrets, {
+    template: 'turno-confirmado',
+    pacienteRef,
+    body: `BioWellness: ¡tu turno quedó confirmado! ${appt.description ?? ''}. Recibimos la seña de $${senaARS.toLocaleString('es-AR')}. ¡Te esperamos! 💚`,
+  });
+
+  return { totalARS, senaARS, invoiceId: invoice.id, confirmados, yaConfirmado: false };
 }
