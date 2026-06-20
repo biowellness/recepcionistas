@@ -46,6 +46,8 @@ export const POLICY_RECEPCIONISTA: AccessPolicy = {
     { resourceType: 'Practitioner', readonly: true },
     { resourceType: 'Location', readonly: true },
     { resourceType: 'HealthcareService', readonly: true },
+    // Bots: lectura para poder invocarlos (cobro, validación, WhatsApp).
+    { resourceType: 'Bot', readonly: true },
   ],
 };
 
