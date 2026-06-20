@@ -92,8 +92,8 @@ Pantallas del esqueleto:
 - **Login** contra Medplum (SignInForm).
 - **Agenda del día** — **vista timeline**: salas en filas, horas en columnas, cada
   turno como bloque en su franja (servicio + paciente), con línea de "ahora".
-  Se calcula desde el horario confirmado y los turnos ocupados de Medplum.
-  Autorefresco cada 60 s.
+  **Clic en una franja libre** abre el formulario de reserva precargado con esa
+  sala y hora. Autorefresco cada 60 s.
 - **Atender paciente** — búsqueda por nombre/DNI, banner de seguridad verde/rojo
   (sin ver la historia clínica), **reserva de turnos** (valida + crea vía bot
   `reservar-turno`) y cobro **calculado por el bot** `calcular-cobro`.
