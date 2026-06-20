@@ -90,7 +90,9 @@ async function generarYCargarSlots(medplum: MedplumClient, dias: number): Promis
   // Mapa recursoCodigo -> id del Schedule (ya creado en la fase anterior).
   const scheduleId = new Map<string, string>();
   for (const r of RECURSOS) {
-    const sch = await medplum.searchOne('Schedule', `identifier=${SYSTEM.recursoCodigo}|SCH_${r.codigo}`);
+    const sch = await withRetry(() =>
+      medplum.searchOne('Schedule', `identifier=${SYSTEM.recursoCodigo}|SCH_${r.codigo}`),
+    );
     if (sch?.id) {
       scheduleId.set(r.codigo, sch.id);
     }
@@ -109,19 +111,50 @@ async function generarYCargarSlots(medplum: MedplumClient, dias: number): Promis
   console.log(`  ✓ Slot (${creados})`);
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Si el error es un 429 de Medplum, devuelve los ms a esperar; si no, undefined. */
+function esperaPorRateLimit(e: unknown): number | undefined {
+  const msg = e instanceof Error ? e.message : String(e);
+  const id = (e as { outcome?: { id?: string } })?.outcome?.id;
+  if (id === 'too-many-requests' || /too many requests/i.test(msg)) {
+    const m = /"_msBeforeNext":(\d+)/.exec(msg);
+    return (m ? Number(m[1]) : 60_000) + 500;
+  }
+  return undefined;
+}
+
+/** Reintenta una operación ante rate limit (429), respetando _msBeforeNext de Medplum. */
+async function withRetry<T>(fn: () => Promise<T>, maxIntentos = 8): Promise<T> {
+  for (let intento = 1; ; intento++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const espera = esperaPorRateLimit(e);
+      if (espera === undefined || intento >= maxIntentos) {
+        throw e;
+      }
+      console.log(`    … rate limit alcanzado; esperando ${Math.ceil(espera / 1000)}s (intento ${intento})`);
+      await sleep(espera);
+    }
+  }
+}
+
 /** Upsert idempotente por url (recursos canónicos) o por identifier. Devuelve el id. */
 async function upsert(medplum: MedplumClient, recurso: Resource): Promise<string | undefined> {
   const query = buildQuery(recurso);
   if (!query) {
-    const creado = await medplum.createResource(recurso);
+    const creado = await withRetry(() => medplum.createResource(recurso));
     return creado.id;
   }
-  const existente = await medplum.searchOne(recurso.resourceType, query);
+  const existente = await withRetry(() => medplum.searchOne(recurso.resourceType, query));
   if (existente?.id) {
-    const actualizado = await medplum.updateResource({ ...recurso, id: existente.id });
+    const actualizado = await withRetry(() => medplum.updateResource({ ...recurso, id: existente.id }));
     return actualizado.id;
   }
-  const creado = await medplum.createResource(recurso);
+  const creado = await withRetry(() => medplum.createResource(recurso));
   return creado.id;
 }
 

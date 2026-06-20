@@ -51,7 +51,8 @@ npm run seed               # carga el catálogo en Medplum (requiere credenciale
 | `npm run verify` | typecheck + test (gate de CI) |
 | `npm run seed` | Carga el catálogo en Medplum (idempotente) |
 | `npm run seed -- --dry-run` | Construye todos los recursos sin servidor |
-| `npm run seed -- --with-slots [--dias=N]` | Además genera la agenda (Slot) de N días (default 7) |
+| `npm run seed -- --with-slots [--dias=N]` | (Opcional) materializa `Slot` libres en Medplum. El front NO lo necesita. |
+| `npm run limpiar` | Lista Schedules ajenos/duplicados (dry-run); `-- --apply` los borra |
 | `npm run dev` | **Levanta el front de recepción en http://localhost:5173** |
 | `npm run build:app` | Build de producción del front |
 | `npm run deploy:bots` | Deploy de los Bots a Medplum (medplum CLI) |
@@ -87,7 +88,9 @@ Pantallas del esqueleto:
 
 - **Login** contra Medplum (SignInForm).
 - **Agenda del día** — todas las salas con su semáforo (verde libre / amarillo por
-  ocupar / rojo ocupada), leído de `Schedule`/`Slot`. Autorefresco cada 60 s.
+  ocupar / rojo ocupada). Las franjas del día se **calculan** desde el horario
+  confirmado; la ocupación se lee de Medplum. Autorefresco cada 60 s.
+  (No requiere materializar `Slot` libres.)
 - **Atender paciente** — búsqueda por nombre/DNI, banner de seguridad verde/rojo
   (sin ver la historia clínica) y cobro **calculado por el bot** `calcular-cobro`.
 
