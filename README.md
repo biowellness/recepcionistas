@@ -89,10 +89,10 @@ npm run dev                       # abre http://localhost:5173
 Pantallas del esqueleto:
 
 - **Login** contra Medplum (SignInForm).
-- **Agenda del día** — todas las salas con su semáforo (verde libre / amarillo por
-  ocupar / rojo ocupada). Las franjas del día se **calculan** desde el horario
-  confirmado; la ocupación se lee de Medplum. Autorefresco cada 60 s.
-  (No requiere materializar `Slot` libres.)
+- **Agenda del día** — **vista timeline**: salas en filas, horas en columnas, cada
+  turno como bloque en su franja (servicio + paciente), con línea de "ahora".
+  Se calcula desde el horario confirmado y los turnos ocupados de Medplum.
+  Autorefresco cada 60 s.
 - **Atender paciente** — búsqueda por nombre/DNI, banner de seguridad verde/rojo
   (sin ver la historia clínica), **reserva de turnos** (valida + crea vía bot
   `reservar-turno`) y cobro **calculado por el bot** `calcular-cobro`.
