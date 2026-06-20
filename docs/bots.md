@@ -2,7 +2,8 @@
 
 Los Bots concentran la inteligencia: el front solo orquesta. Son funciones
 TypeScript que se bundlean a un único módulo CJS (`exports.handler`) y se
-deployan al runtime `vmcontext` de Medplum.
+deployan al runtime **`awslambda`** de Medplum (configurable con la env
+`BOT_RUNTIME_VERSION`).
 
 ## Los 3 bots del Bloque 0
 
@@ -24,7 +25,7 @@ npm run deploy:bots   # crea (si faltan) + bundlea + deploya + guarda ids
 ```
 
 `deploy:bots` hace, por cada bot:
-1. lo busca por `name`; si no existe, lo crea (`POST admin/projects/{id}/bot`, runtime `vmcontext`);
+1. lo busca por `name`; si no existe, lo crea (`POST admin/projects/{id}/bot`, runtime `awslambda`);
 2. bundlea el source con esbuild (CJS, sin dependencias externas);
 3. lo deploya (`POST Bot/{id}/$deploy`);
 4. guarda los ids en `medplum.config.json`.

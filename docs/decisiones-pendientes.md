@@ -35,7 +35,7 @@ una parte del avance; el resto se resuelve en paralelo.
 | Cuenta | Para qué | Estado |
 |---|---|---|
 | WhatsApp Business (Twilio) | Confirmaciones y recordatorios (bot `enviar-whatsapp`). | A gestionar |
-| SendGrid | Email transaccional. | A gestionar |
+| AWS SES | Email transaccional (vía `medplum.sendEmail()`, configurado en el servidor Medplum). | A gestionar |
 | MercadoPago | Cobro de membresías/sesiones (tokeniza tarjetas; no guardamos datos de tarjeta). | A gestionar |
 
 ## Infra

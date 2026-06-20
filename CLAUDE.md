@@ -59,9 +59,11 @@ npm run deploy:bots        # deploy de bots (medplum CLI)
 
 ## Secretos
 
-Nunca commitear `.env` ni credenciales. Las integraciones (Twilio, SendGrid,
+Nunca commitear `.env` ni credenciales. Las integraciones (Twilio, AWS SES,
 MercadoPago, Medplum) se configuran por variables de entorno (`.env.example`).
-MercadoPago tokeniza tarjetas: **nunca** almacenar números de tarjeta.
+El email se envía con `medplum.sendEmail()` (proveedor AWS SES configurado en el
+servidor Medplum). MercadoPago tokeniza tarjetas: **nunca** almacenar números de
+tarjeta.
 
 ## Pendientes
 

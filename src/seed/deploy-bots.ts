@@ -18,6 +18,9 @@ import { MedplumClient } from '@medplum/core';
 import type { Bot } from '@medplum/fhirtypes';
 import { CONFIG_TC_ID } from '../fhir/identifiers.js';
 
+/** Runtime de los bots. Medplum BioWellness usa AWS Lambda. Configurable por env. */
+const RUNTIME_VERSION = process.env.BOT_RUNTIME_VERSION ?? 'awslambda';
+
 interface DefBot {
   name: string;
   source: string;
@@ -110,7 +113,7 @@ async function main(): Promise<void> {
       const creado = (await medplum.post(`admin/projects/${projectId}/bot`, {
         name: b.name,
         description: b.description,
-        runtimeVersion: 'vmcontext',
+        runtimeVersion: RUNTIME_VERSION,
       })) as Bot;
       bot = await medplum.readResource('Bot', creado.id as string);
       console.log(`  + Bot creado: ${b.name} (${bot.id})`);
