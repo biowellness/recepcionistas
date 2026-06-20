@@ -1,25 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  Center,
-  Group,
-  Loader,
-  SimpleGrid,
-  Stack,
-  Text,
-  Title,
-} from '@mantine/core';
-import { IconRefresh, IconInfoCircle, IconArrowsLeftRight } from '@tabler/icons-react';
-import { cargarSalas, type SalaEstado } from '../lib/agenda';
-import { SemaforoBadge } from '../components/SemaforoBadge';
+import { Alert, Box, Button, Center, Group, Loader, Stack, Text, Title } from '@mantine/core';
+import { IconRefresh, IconInfoCircle } from '@tabler/icons-react';
+import { cargarTimeline, type TimelineData } from '../lib/timeline';
+import { Timeline } from '../components/Timeline';
 
 const REFRESCO_MS = 60_000;
 
 export function AgendaDelDia(): JSX.Element {
-  const [salas, setSalas] = useState<SalaEstado[] | null>(null);
+  const [data, setData] = useState<TimelineData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
@@ -27,7 +15,7 @@ export function AgendaDelDia(): JSX.Element {
     setCargando(true);
     setError(null);
     try {
-      setSalas(await cargarSalas());
+      setData(await cargarTimeline());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al cargar la agenda.');
     } finally {
@@ -41,11 +29,7 @@ export function AgendaDelDia(): JSX.Element {
     return () => clearInterval(id);
   }, [refrescar]);
 
-  const hoy = new Date().toLocaleDateString('es-AR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  const hoy = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
     <Stack gap="lg">
@@ -58,12 +42,7 @@ export function AgendaDelDia(): JSX.Element {
         </Stack>
         <Group gap="sm">
           <Leyenda />
-          <Button
-            variant="light"
-            leftSection={<IconRefresh size={16} />}
-            onClick={() => void refrescar()}
-            loading={cargando}
-          >
+          <Button variant="light" leftSection={<IconRefresh size={16} />} onClick={() => void refrescar()} loading={cargando}>
             Actualizar
           </Button>
         </Group>
@@ -75,88 +54,32 @@ export function AgendaDelDia(): JSX.Element {
         </Alert>
       )}
 
-      {salas === null && !error && (
+      {data === null && !error && (
         <Center mih={240}>
           <Loader />
         </Center>
       )}
 
-      {salas && salas.length === 0 && (
-        <Alert color="yellow" icon={<IconInfoCircle size={16} />} title="Sin salas">
-          No hay salas cargadas en Medplum. Corré el seed (<code>npm run seed</code>) para crearlas.
-        </Alert>
-      )}
-
-      {salas && salas.length > 0 && (
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-          {salas.map((sala) => (
-            <SalaCard key={sala.codigo} sala={sala} />
-          ))}
-        </SimpleGrid>
-      )}
+      {data && <Timeline data={data} />}
     </Stack>
-  );
-}
-
-function SalaCard({ sala }: { sala: SalaEstado }): JSX.Element {
-  const sinAgenda = sala.slotsTotales === 0;
-  const tieneTurnos = sala.turnos.length > 0;
-  return (
-    <Card
-      withBorder
-      shadow="sm"
-      radius="md"
-      padding="lg"
-      style={tieneTurnos ? { borderColor: 'var(--mantine-color-red-4)', borderWidth: 2 } : undefined}
-    >
-      <Group justify="space-between" align="flex-start" wrap="nowrap">
-        <Text fw={600} size="lg" lineClamp={2}>
-          {sala.nombre}
-        </Text>
-        <SemaforoBadge estado={sala.color} />
-      </Group>
-
-      <Group gap="xs" mt="md">
-        {sinAgenda ? (
-          <Badge color="gray" variant="light">
-            Sin agenda generada
-          </Badge>
-        ) : (
-          <Badge color={tieneTurnos ? 'orange' : 'teal'} variant="light">
-            {sala.slotsLibres} libres / {sala.slotsTotales} franjas
-          </Badge>
-        )}
-        {tieneTurnos && (
-          <Badge color="red" variant="filled">
-            {sala.turnos.length} {sala.turnos.length === 1 ? 'turno' : 'turnos'} hoy
-          </Badge>
-        )}
-        {sala.comparteEquipo && (
-          <Badge color="grape" variant="light" leftSection={<IconArrowsLeftRight size={12} />}>
-            Comparte equipo
-          </Badge>
-        )}
-      </Group>
-
-      {tieneTurnos && (
-        <Group gap={6} mt="sm">
-          {sala.turnos.map((t, i) => (
-            <Badge key={i} color="red" variant="light" radius="sm">
-              {t.desde}–{t.hasta}
-            </Badge>
-          ))}
-        </Group>
-      )}
-    </Card>
   );
 }
 
 function Leyenda(): JSX.Element {
   return (
-    <Group gap="xs" visibleFrom="md">
-      <SemaforoBadge estado="verde" size="sm" />
-      <SemaforoBadge estado="amarillo" size="sm" />
-      <SemaforoBadge estado="rojo" size="sm" />
+    <Group gap="md" visibleFrom="md">
+      <Group gap={6}>
+        <Box w={16} h={12} style={{ background: 'var(--mantine-color-red-6)', borderRadius: 3 }} />
+        <Text size="xs" c="dimmed">
+          Turno
+        </Text>
+      </Group>
+      <Group gap={6}>
+        <Box w={2} h={14} style={{ background: 'var(--mantine-color-blue-6)' }} />
+        <Text size="xs" c="dimmed">
+          Ahora
+        </Text>
+      </Group>
     </Group>
   );
 }
