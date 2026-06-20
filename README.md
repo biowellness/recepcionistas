@@ -18,9 +18,10 @@ base sobre la que se apoya la pantalla de la recepción. Backend **Medplum (FHIR
 | Extensiones FHIR + AccessPolicies (recepción) | ✅ |
 | Bots: calcular-cobro · validar-turno · enviar-whatsapp | ✅ |
 | Seed del catálogo (idempotente) | ✅ (`--dry-run` sin servidor) |
-| Harness de tests (casos AC del Anexo A) | ✅ 53 tests |
+| Motor de agenda: Slots + semáforo de salas | ✅ con tests (config provisoria) |
+| Harness de tests (casos AC del Anexo A) | ✅ 62 tests |
 | CI (GitHub Actions) | ✅ |
-| Generación de Slots (agenda) | ⏳ bloqueado por horario + lista de salas |
+| Horario + lista definitiva de salas | ⏳ pendiente de Andrés (para datos reales de agenda) |
 | Contraindicaciones | ⚠️ borrador, pendiente validación médica |
 
 Ver [`docs/decisiones-pendientes.md`](docs/decisiones-pendientes.md) para lo que falta definir.
@@ -49,6 +50,7 @@ npm run seed               # carga el catálogo en Medplum (requiere credenciale
 | `npm run verify` | typecheck + test (gate de CI) |
 | `npm run seed` | Carga el catálogo en Medplum (idempotente) |
 | `npm run seed -- --dry-run` | Construye todos los recursos sin servidor |
+| `npm run seed -- --with-slots [--dias=N]` | Además genera la agenda (Slot) de N días (default 7) |
 | `npm run deploy:bots` | Deploy de los Bots a Medplum (medplum CLI) |
 
 ## Estructura

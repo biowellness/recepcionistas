@@ -5,19 +5,26 @@
  *                                  SIN conectarse a Medplum (sirve para CI/local).
  *   npm run seed                → conecta a Medplum (client credentials del .env) y
  *                                  hace upsert idempotente de todo el catálogo.
+ *   npm run seed -- --with-slots [--dias=N]
+ *                               → además genera la agenda (Slot) de cada recurso
+ *                                  para los próximos N días (default 7).
  *
  * Idempotente: cada recurso se busca por url/identifier; si existe, se actualiza.
  */
 import 'dotenv/config';
 import { MedplumClient } from '@medplum/core';
 import type { Resource } from '@medplum/fhirtypes';
-import { buildSeed } from './builders.js';
-import { HORARIO_ES_PLACEHOLDER } from '../config/horario.js';
+import { buildSeed, buildSlot } from './builders.js';
+import { HORARIO_ES_PLACEHOLDER, HORARIO_SEMANAL } from '../config/horario.js';
 import { RECURSOS } from '../config/recursos.js';
 import { CONTRAINDICACIONES } from '../config/contraindicaciones.js';
+import { generarSlots } from '../lib/slots.js';
+import { SYSTEM } from '../fhir/identifiers.js';
 
 async function main(): Promise<void> {
   const dryRun = process.argv.includes('--dry-run');
+  const withSlots = process.argv.includes('--with-slots');
+  const dias = parseDias();
   const seed = buildSeed();
 
   const grupos: Array<[string, Resource[]]> = [
@@ -43,6 +50,14 @@ async function main(): Promise<void> {
 
   imprimirAdvertencias();
 
+  if (withSlots) {
+    const descriptores = generarSlots(RECURSOS, HORARIO_SEMANAL, { desde: new Date(), dias });
+    console.log(`\nSlots a generar (${dias} días): ${descriptores.length}`);
+    if (HORARIO_ES_PLACEHOLDER) {
+      console.log('   ⚠️  Usando horario PLACEHOLDER: los Slot serán provisionales.');
+    }
+  }
+
   if (dryRun) {
     console.log('\n[dry-run] No se conecta a Medplum. Recursos construidos OK.');
     return;
@@ -62,22 +77,52 @@ async function main(): Promise<void> {
     }
     console.log(`  ✓ ${nombre} (${arr.length})`);
   }
+
+  if (withSlots) {
+    await generarYCargarSlots(medplum, dias);
+  }
+
   console.log('\nSeed completado.');
 }
 
-/** Upsert idempotente por url (recursos canónicos) o por identifier. */
-async function upsert(medplum: MedplumClient, recurso: Resource): Promise<void> {
+/** Genera y carga los Slot de cada recurso, referenciando su Schedule. */
+async function generarYCargarSlots(medplum: MedplumClient, dias: number): Promise<void> {
+  // Mapa recursoCodigo -> id del Schedule (ya creado en la fase anterior).
+  const scheduleId = new Map<string, string>();
+  for (const r of RECURSOS) {
+    const sch = await medplum.searchOne('Schedule', `identifier=${SYSTEM.recursoCodigo}|SCH_${r.codigo}`);
+    if (sch?.id) {
+      scheduleId.set(r.codigo, sch.id);
+    }
+  }
+
+  const descriptores = generarSlots(RECURSOS, HORARIO_SEMANAL, { desde: new Date(), dias });
+  let creados = 0;
+  for (const desc of descriptores) {
+    const id = scheduleId.get(desc.recursoCodigo);
+    if (!id) {
+      continue;
+    }
+    await upsert(medplum, buildSlot(desc, `Schedule/${id}`));
+    creados++;
+  }
+  console.log(`  ✓ Slot (${creados})`);
+}
+
+/** Upsert idempotente por url (recursos canónicos) o por identifier. Devuelve el id. */
+async function upsert(medplum: MedplumClient, recurso: Resource): Promise<string | undefined> {
   const query = buildQuery(recurso);
   if (!query) {
-    await medplum.createResource(recurso);
-    return;
+    const creado = await medplum.createResource(recurso);
+    return creado.id;
   }
   const existente = await medplum.searchOne(recurso.resourceType, query);
   if (existente?.id) {
-    await medplum.updateResource({ ...recurso, id: existente.id });
-  } else {
-    await medplum.createResource(recurso);
+    const actualizado = await medplum.updateResource({ ...recurso, id: existente.id });
+    return actualizado.id;
   }
+  const creado = await medplum.createResource(recurso);
+  return creado.id;
 }
 
 function buildQuery(recurso: Resource): string | undefined {
@@ -103,7 +148,7 @@ function imprimirAdvertencias(): void {
   const avisos: string[] = [];
   if (HORARIO_ES_PLACEHOLDER) {
     avisos.push(
-      'Horario de atención es PLACEHOLDER (decisión bloqueante). No se generan Slot hasta confirmar el horario real.',
+      'Horario de atención es PLACEHOLDER (decisión bloqueante). Los Slot que se generen con --with-slots serán provisionales hasta confirmar el horario real.',
     );
   }
   if (RECURSOS.some((r) => r.provisional)) {
@@ -118,6 +163,13 @@ function imprimirAdvertencias(): void {
       console.log(`   - ${a}`);
     }
   }
+}
+
+/** Lee --dias=N de los argumentos (default 7). */
+function parseDias(): number {
+  const arg = process.argv.find((a) => a.startsWith('--dias='));
+  const n = arg ? Number(arg.split('=')[1]) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : 7;
 }
 
 function requireEnv(nombre: string): string {

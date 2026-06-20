@@ -39,7 +39,9 @@ config (datos Manual v9)  ─►  lib (lógica pura)  ─►  bots (FHIR + integ
 Del brief: **"stack verde, seed cargado, tests base en verde"**, y que una
 secretaria pueda, en el entorno de prueba:
 
-- [ ] ver la agenda del día con las salas y sus estados *(requiere horario + salas)*;
+- [x] ver la agenda del día con las salas y sus estados — motor de **Slots**
+      (`generarSlots`) y **semáforo** verde/amarillo/rojo (`estadoRecurso`) listos;
+      falta confirmar horario + lista de salas para los datos reales;
 - [x] ver el **banner de contraindicaciones** verde/rojo sin acceder a la historia
       clínica (`bannerSeguridad`, AccessPolicy de recepción);
 - [x] que el sistema **calcule el monto a cobrar** incluido USD→ARS
@@ -56,6 +58,7 @@ Andrés (horario de atención y lista definitiva de salas). Ver
 ## Cómo verificar
 
 ```bash
-npm run verify             # typecheck + 53 tests (casos AC del Anexo A)
-npm run seed -- --dry-run  # construye 131 recursos FHIR sin conectarse a Medplum
+npm run verify                          # typecheck + 62 tests (casos AC del Anexo A)
+npm run seed -- --dry-run               # construye 131 recursos FHIR sin Medplum
+npm run seed -- --dry-run --with-slots  # + cuenta los Slot de la agenda (7 días)
 ```
