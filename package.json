@@ -15,6 +15,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed": "tsx src/seed/index.ts",
+    "limpiar": "tsx src/seed/limpiar.ts",
     "build:bots": "tsc -p tsconfig.bots.json",
     "deploy:bots": "medplum bot deploy",
     "verify": "npm run typecheck && npm run test",
