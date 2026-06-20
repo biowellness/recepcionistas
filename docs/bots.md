@@ -17,6 +17,8 @@ deployan al runtime **`awslambda`** de Medplum (configurable con la env
 | `bw-pagar-sena` | Registra la seña (50%), confirma el turno (pending→booked) y envía WhatsApp de confirmación. | `executeBot` (clic en turno tentativo). |
 | `bw-link-mercadopago` | Genera un link de MercadoPago por el monto de la seña (si está configurado el token). | `executeBot` (botón en turno tentativo). |
 | `bw-webhook-mercadopago` | Webhook de MP: verifica el pago contra la API de MP y confirma el turno automáticamente al acreditarse. | URL pública que llama MercadoPago. |
+| `bw-asignar-plan` | Asigna una membresía/paquete: crea el `Coverage`, emite el cobro inicial y envía WhatsApp de bienvenida. | `executeBot` desde el front (Atender → Planes). |
+| `bw-cobro-membresias` | **Cron días 1-5:** renueva cada membresía activa (reset de sesiones + cobro mensual + WhatsApp). | `cronTimer` del Bot (a diario). |
 | `bw-enviar-whatsapp` | Envía WhatsApp (Twilio) y registra `Communication`. | `executeBot` por evento o manual. |
 
 ## Deploy
@@ -86,6 +88,34 @@ turno se confirma solo (pending → booked) + WhatsApp.
 El bot toma el id del pago, hace `GET /v1/payments/{id}` con el token, y si está
 `approved` confirma el turno por su `external_reference` (= appointmentId). Es
 idempotente (los reintentos de MP no duplican la seña).
+
+## Membresías y paquetes (planes)
+
+Un plan del paciente se modela como un **`Coverage`** (`status: active`,
+`beneficiary` = el paciente) con extensiones: `tipo-cobertura`
+(`membresia`/`paquete`), `plan-codigo`, `sesiones-mes` (membresía) o
+`sesiones-total` (paquete), `sesiones-usadas` y, en membresías, `ciclo-mes`
+(`YYYY-MM` ya facturado). Los paquetes llevan `period.end` (vencimiento por
+vigencia en días); las membresías no vencen (se renuevan por ciclo).
+
+- **Asignar** (`bw-asignar-plan`): crea el `Coverage`, emite el `Invoice` inicial
+  (membresía: mes en curso; paquete: total, con FM si aplica) y avisa por WhatsApp.
+- **Consumir** (al reservar): si se pasa `coverageId`, `bw-reservar-turno` /
+  `bw-reservar-combo` validan el saldo (**R-10**) y que la base del plan coincida
+  con lo reservado (paquete↔servicio, membresía↔combo). Si todo OK, incrementan
+  `sesiones-usadas` y el turno queda **confirmado sin seña** (`booked`).
+- **Bloqueo al agotarse** (**R-10**): sin saldo / vencido / inactivo, la reserva
+  con plan se rechaza (la lógica pura está en `src/lib/planes.ts`, testeada).
+- **Cobro recurrente** (`bw-cobro-membresias`): pensado como **cron diario**. En
+  los días 1-5 (R-11) resetea las sesiones del mes y emite el cobro mensual
+  (idempotente por ciclo: no duplica si corre varias veces).
+
+### Cron de `bw-cobro-membresias`
+
+El reset/cobro mensual lo dispara el `cronTimer` del Bot en Medplum. Configurarlo
+**una vez** (Bot → propiedad `cronTimer`, p. ej. `0 9 * * *` = 09:00 a diario).
+El propio bot decide si actúa (días 1-5 y ciclo no facturado), así que correrlo
+todos los días es seguro e idempotente.
 
 ## Invocación desde el front
 

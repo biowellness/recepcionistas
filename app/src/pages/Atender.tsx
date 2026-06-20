@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -22,6 +22,7 @@ import {
   IconCash,
   IconCalendarPlus,
   IconInfoCircle,
+  IconLicense,
 } from '@tabler/icons-react';
 import type { Patient, Invoice } from '@medplum/fhirtypes';
 import { getDisplayString } from '@medplum/core';
@@ -30,12 +31,16 @@ import {
   calcularCobro,
   reservarTurno,
   reservarCombo,
+  asignarPlan,
   mensajeError,
   type ResultadoReserva,
   type ResultadoCombo,
 } from '../lib/bots';
+import { cargarPlanesActivos, planUsable, type PlanPaciente } from '../lib/planes';
 import { SERVICIOS } from '@bw/config/catalogo';
 import { COMBOS } from '@bw/config/combos';
+import { MEMBRESIAS } from '@bw/config/membresias';
+import { PAQUETES } from '@bw/config/paquetes';
 import { recursosParaCategoria } from '@bw/config/recursos';
 import { generarSlots } from '@bw/lib/slots';
 import { HORARIO_SEMANAL } from '@bw/config/horario';
@@ -104,6 +109,20 @@ export function Atender(): JSX.Element {
 }
 
 function FichaPaciente({ paciente, onVolver }: { paciente: Patient; onVolver: () => void }): JSX.Element {
+  const [planes, setPlanes] = useState<PlanPaciente[]>([]);
+
+  const recargarPlanes = useCallback(async (): Promise<void> => {
+    try {
+      setPlanes(await cargarPlanesActivos(paciente.id!));
+    } catch {
+      setPlanes([]);
+    }
+  }, [paciente.id]);
+
+  useEffect(() => {
+    void recargarPlanes();
+  }, [recargarPlanes]);
+
   return (
     <Stack gap="md">
       <Group justify="space-between">
@@ -113,9 +132,150 @@ function FichaPaciente({ paciente, onVolver }: { paciente: Patient; onVolver: ()
         </Button>
       </Group>
       <BannerSeguridad pacienteId={paciente.id!} />
-      <PanelReserva paciente={paciente} />
+      <PanelPlanes paciente={paciente} planes={planes} onCambio={recargarPlanes} />
+      <PanelReserva paciente={paciente} planes={planes} onReservado={recargarPlanes} />
       <PanelCobro paciente={paciente} />
     </Stack>
+  );
+}
+
+/** Planes (membresías/paquetes) del paciente: muestra saldo y permite asignar uno. */
+function PanelPlanes({
+  paciente,
+  planes,
+  onCambio,
+}: {
+  paciente: Patient;
+  planes: PlanPaciente[];
+  onCambio: () => Promise<void>;
+}): JSX.Element {
+  const [tipo, setTipo] = useState<'membresia' | 'paquete'>('membresia');
+  const [planCodigo, setPlanCodigo] = useState<string | null>(null);
+  const [fm, setFm] = useState(false);
+  const [medioPago, setMedioPago] = useState<string>('efectivo');
+  const [asignando, setAsignando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  const opciones =
+    tipo === 'membresia'
+      ? MEMBRESIAS.map((m) => ({ value: m.codigo, label: `${m.tier} ${m.intensidad} ${m.variante}` }))
+      : PAQUETES.map((p) => ({ value: p.codigo, label: p.codigo }));
+
+  async function asignar(): Promise<void> {
+    if (!planCodigo) {
+      return;
+    }
+    setAsignando(true);
+    setError(null);
+    setOk(null);
+    try {
+      const r = await asignarPlan({
+        pacienteRef: `Patient/${paciente.id}`,
+        tipo,
+        planCodigo,
+        fm: tipo === 'paquete' ? fm : undefined,
+        medioPago,
+      });
+      if (r.ok) {
+        setOk(`Plan activado: ${r.sesiones} sesiones. Cobro inicial $${(r.totalARS ?? 0).toLocaleString('es-AR')}.`);
+        setPlanCodigo(null);
+        await onCambio();
+      } else {
+        setError(r.mensaje ?? 'No se pudo asignar el plan.');
+      }
+    } catch (e) {
+      setError(mensajeError(e));
+    } finally {
+      setAsignando(false);
+    }
+  }
+
+  return (
+    <Card withBorder radius="md" padding="lg">
+      <Group gap="xs" mb="sm">
+        <IconLicense size={18} />
+        <Text fw={600}>Planes (membresías / paquetes)</Text>
+      </Group>
+
+      {planes.length === 0 ? (
+        <Text size="sm" c="dimmed" mb="sm">
+          El paciente no tiene planes activos.
+        </Text>
+      ) : (
+        <Stack gap="xs" mb="md">
+          {planes.map((p) => (
+            <Group key={p.coverageId} justify="space-between">
+              <Text size="sm" fw={500}>
+                {p.nombre}
+              </Text>
+              <Group gap="xs">
+                <Badge color={p.saldo.disponible ? 'teal' : 'gray'} variant="light">
+                  {p.saldo.restantes}/{p.estado.total} sesiones
+                </Badge>
+                {p.saldo.vencido && <Badge color="red">vencido</Badge>}
+                {p.saldo.agotado && !p.saldo.vencido && <Badge color="orange">agotado (R-10)</Badge>}
+              </Group>
+            </Group>
+          ))}
+        </Stack>
+      )}
+
+      <Group grow align="flex-end">
+        <Select
+          label="Tipo"
+          data={[
+            { value: 'membresia', label: 'Membresía (mensual)' },
+            { value: 'paquete', label: 'Paquete (sesiones)' },
+          ]}
+          value={tipo}
+          onChange={(v) => {
+            setTipo((v as 'membresia' | 'paquete') ?? 'membresia');
+            setPlanCodigo(null);
+          }}
+        />
+        <Select
+          label="Plan"
+          placeholder="Elegí el plan"
+          data={opciones}
+          value={planCodigo}
+          onChange={setPlanCodigo}
+          searchable
+        />
+        <Select
+          label="Medio de pago (cobro inicial)"
+          data={[
+            { value: 'efectivo', label: 'Efectivo' },
+            { value: 'transferencia', label: 'Transferencia' },
+            { value: 'tarjeta', label: 'Tarjeta' },
+            { value: 'mercadopago', label: 'MercadoPago' },
+          ]}
+          value={medioPago}
+          onChange={(v) => setMedioPago(v ?? 'efectivo')}
+        />
+      </Group>
+
+      {tipo === 'paquete' && (
+        <Switch mt="sm" label="Founding Member (20% OFF)" checked={fm} onChange={(e) => setFm(e.currentTarget.checked)} />
+      )}
+
+      <Group mt="md">
+        <Button onClick={() => void asignar()} loading={asignando} disabled={!planCodigo}>
+          Asignar plan
+        </Button>
+      </Group>
+
+      {error && (
+        <Alert color="orange" mt="md" icon={<IconInfoCircle size={16} />}>
+          {error}
+        </Alert>
+      )}
+      {ok && (
+        <Alert color="teal" mt="md" title="Plan asignado ✓">
+          {ok}
+        </Alert>
+      )}
+    </Card>
   );
 }
 
@@ -152,13 +312,22 @@ function BannerSeguridad({ pacienteId }: { pacienteId: string }): JSX.Element {
 }
 
 /** Reserva de turno o combo: el front arma la propuesta y el bot valida + crea. */
-function PanelReserva({ paciente }: { paciente: Patient }): JSX.Element {
+function PanelReserva({
+  paciente,
+  planes,
+  onReservado,
+}: {
+  paciente: Patient;
+  planes: PlanPaciente[];
+  onReservado: () => Promise<void>;
+}): JSX.Element {
   const hoy = new Date().toISOString().slice(0, 10);
   const [seleccion, setSeleccion] = useState<string | null>(null);
   const [recursoCodigo, setRecursoCodigo] = useState<string | null>(null);
   const [fecha, setFecha] = useState(hoy);
   const [hora, setHora] = useState<string | null>(null);
   const [prescripcion, setPrescripcion] = useState(false);
+  const [usarPlan, setUsarPlan] = useState(true);
   const [resultado, setResultado] = useState<ResultadoReserva | null>(null);
   const [resultadoCombo, setResultadoCombo] = useState<ResultadoCombo | null>(null);
   const [reservando, setReservando] = useState(false);
@@ -167,6 +336,11 @@ function PanelReserva({ paciente }: { paciente: Patient }): JSX.Element {
   const esCombo = seleccion ? COMBOS.some((c) => c.codigo === seleccion) : false;
   const servicio = !esCombo && seleccion ? SERVICIOS.find((s) => s.codigo === seleccion) : undefined;
   const salas = servicio ? recursosParaCategoria(servicio.categoria) : [];
+
+  // ¿Hay un plan utilizable para lo seleccionado? (membresía↔combo, paquete↔servicio)
+  const plan = seleccion
+    ? planUsable(planes, { tipo: esCombo ? 'combo' : 'servicio', codigo: seleccion })
+    : undefined;
 
   const opciones = [
     { group: 'Combos (secuencia automática)', items: COMBOS.map((c) => ({ value: c.codigo, label: c.nombre })) },
@@ -193,20 +367,29 @@ function PanelReserva({ paciente }: { paciente: Patient }): JSX.Element {
     limpiar();
     const inicio = `${fecha}T${hora}:00-03:00`;
     const pacienteRef = `Patient/${paciente.id}`;
+    const coverageId = usarPlan && plan ? plan.coverageId : undefined;
     try {
+      let creado = false;
       if (esCombo) {
-        setResultadoCombo(await reservarCombo({ pacienteRef, comboCodigo: seleccion, inicio, confirmar: true }));
+        const r = await reservarCombo({ pacienteRef, comboCodigo: seleccion, inicio, coverageId, confirmar: true });
+        setResultadoCombo(r);
+        creado = r.creado;
       } else {
-        setResultado(
-          await reservarTurno({
-            pacienteRef,
-            servicioCodigo: seleccion,
-            recursoCodigo: recursoCodigo as string,
-            inicio,
-            prescripcionActiva: prescripcion,
-            confirmar: true,
-          }),
-        );
+        const r = await reservarTurno({
+          pacienteRef,
+          servicioCodigo: seleccion,
+          recursoCodigo: recursoCodigo as string,
+          inicio,
+          prescripcionActiva: prescripcion,
+          coverageId,
+          confirmar: true,
+        });
+        setResultado(r);
+        creado = r.creado;
+      }
+      // Si se consumió una sesión del plan, refrescar el saldo mostrado.
+      if (creado && coverageId) {
+        await onReservado();
       }
     } catch (e) {
       setError(mensajeError(e));
@@ -285,6 +468,14 @@ function PanelReserva({ paciente }: { paciente: Patient }): JSX.Element {
           />
         )}
 
+        {plan && (
+          <Switch
+            label={`Usar ${plan.nombre} (quedan ${plan.saldo.restantes} sesiones) — confirma sin seña`}
+            checked={usarPlan}
+            onChange={(e) => setUsarPlan(e.currentTarget.checked)}
+          />
+        )}
+
         <Group>
           <Button
             onClick={() => void reservar()}
@@ -303,7 +494,9 @@ function PanelReserva({ paciente }: { paciente: Patient }): JSX.Element {
 
         {resultado?.creado && (
           <Alert color="teal" title="Turno reservado ✓">
-            La sala queda ocupada en la agenda.
+            {resultado.planRestantes !== undefined
+              ? `Confirmado con el plan. Quedan ${resultado.planRestantes} sesiones. La sala queda ocupada en la agenda.`
+              : 'La sala queda ocupada en la agenda. Tentativo hasta cobrar la seña del 50%.'}
           </Alert>
         )}
         {resultado && !resultado.creado && (
@@ -320,6 +513,11 @@ function PanelReserva({ paciente }: { paciente: Patient }): JSX.Element {
 
         {resultadoCombo?.creado && (
           <Alert color="teal" title="Combo reservado ✓">
+            {resultadoCombo.planRestantes !== undefined && (
+              <Text size="sm" mb="xs">
+                Confirmado con la membresía. Quedan {resultadoCombo.planRestantes} sesiones este mes.
+              </Text>
+            )}
             <List size="sm">
               {resultadoCombo.plan.map((p, i) => (
                 <List.Item key={i}>
