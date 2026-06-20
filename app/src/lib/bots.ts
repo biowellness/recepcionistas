@@ -15,6 +15,20 @@ export interface ItemCobroInput {
   cantidad?: number;
 }
 
+/** Extrae un mensaje legible de un error de bot (que suele venir como JSON con stack). */
+export function mensajeError(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e);
+  try {
+    const o = JSON.parse(raw) as { errorMessage?: string };
+    if (o && typeof o.errorMessage === 'string') {
+      return o.errorMessage;
+    }
+  } catch {
+    // no era JSON
+  }
+  return raw;
+}
+
 async function botIdPorNombre(nombre: string): Promise<string> {
   const bot = await medplum.searchOne('Bot', `name=${nombre}`);
   if (!bot?.id) {
@@ -63,4 +77,34 @@ export interface ResultadoReserva {
 export async function reservarTurno(input: ReservaInput): Promise<ResultadoReserva> {
   const id = await botIdPorNombre('bw-reservar-turno');
   return (await medplum.executeBot(id, input)) as ResultadoReserva;
+}
+
+export interface ComboInput {
+  pacienteRef: string;
+  comboCodigo: string;
+  inicio: string;
+  autorizacionMedica?: boolean;
+  confirmar?: boolean;
+}
+
+export interface ItemPlanDTO {
+  servicio: string;
+  recurso: string;
+  desde: string;
+  hasta: string;
+}
+
+export interface ResultadoCombo {
+  ok: boolean;
+  bloqueos: IssueValidacion[];
+  advertencias: IssueValidacion[];
+  creado: boolean;
+  plan: ItemPlanDTO[];
+  appointmentIds?: string[];
+}
+
+/** Llama al bot de combo: agenda los componentes en secuencia (HBOT primero). */
+export async function reservarCombo(input: ComboInput): Promise<ResultadoCombo> {
+  const id = await botIdPorNombre('bw-reservar-combo');
+  return (await medplum.executeBot(id, input)) as ResultadoCombo;
 }

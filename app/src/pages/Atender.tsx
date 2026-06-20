@@ -26,8 +26,16 @@ import {
 import type { Patient, Invoice } from '@medplum/fhirtypes';
 import { getDisplayString } from '@medplum/core';
 import { medplum } from '../medplum';
-import { calcularCobro, reservarTurno, type ResultadoReserva } from '../lib/bots';
+import {
+  calcularCobro,
+  reservarTurno,
+  reservarCombo,
+  mensajeError,
+  type ResultadoReserva,
+  type ResultadoCombo,
+} from '../lib/bots';
 import { SERVICIOS } from '@bw/config/catalogo';
+import { COMBOS } from '@bw/config/combos';
 import { recursosParaCategoria } from '@bw/config/recursos';
 import { generarSlots } from '@bw/lib/slots';
 import { HORARIO_SEMANAL } from '@bw/config/horario';
@@ -143,47 +151,65 @@ function BannerSeguridad({ pacienteId }: { pacienteId: string }): JSX.Element {
   );
 }
 
-/** Reserva de turno: el front arma la propuesta y el bot valida + crea. */
+/** Reserva de turno o combo: el front arma la propuesta y el bot valida + crea. */
 function PanelReserva({ paciente }: { paciente: Patient }): JSX.Element {
   const hoy = new Date().toISOString().slice(0, 10);
-  const [servicioCodigo, setServicioCodigo] = useState<string | null>(null);
+  const [seleccion, setSeleccion] = useState<string | null>(null);
   const [recursoCodigo, setRecursoCodigo] = useState<string | null>(null);
   const [fecha, setFecha] = useState(hoy);
   const [hora, setHora] = useState<string | null>(null);
   const [prescripcion, setPrescripcion] = useState(false);
   const [resultado, setResultado] = useState<ResultadoReserva | null>(null);
+  const [resultadoCombo, setResultadoCombo] = useState<ResultadoCombo | null>(null);
   const [reservando, setReservando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const servicio = servicioCodigo ? SERVICIOS.find((s) => s.codigo === servicioCodigo) : undefined;
+  const esCombo = seleccion ? COMBOS.some((c) => c.codigo === seleccion) : false;
+  const servicio = !esCombo && seleccion ? SERVICIOS.find((s) => s.codigo === seleccion) : undefined;
   const salas = servicio ? recursosParaCategoria(servicio.categoria) : [];
+
+  const opciones = [
+    { group: 'Combos (secuencia automática)', items: COMBOS.map((c) => ({ value: c.codigo, label: c.nombre })) },
+    { group: 'Servicios', items: SERVICIOS.map((s) => ({ value: s.codigo, label: s.nombre })) },
+  ];
 
   const horas = useMemo(() => {
     const desde = new Date(`${fecha}T00:00:00-03:00`);
     const dummy = [{ codigo: '_', nombre: '_', tipo: 'SALA' as const, capacidad: 1 }];
-    const slots = generarSlots(dummy, HORARIO_SEMANAL, { desde, dias: 1 });
-    return slots.map((s) => s.inicio.slice(11, 16));
+    return generarSlots(dummy, HORARIO_SEMANAL, { desde, dias: 1 }).map((s) => s.inicio.slice(11, 16));
   }, [fecha]);
 
+  function limpiar(): void {
+    setResultado(null);
+    setResultadoCombo(null);
+    setError(null);
+  }
+
   async function reservar(): Promise<void> {
-    if (!servicioCodigo || !recursoCodigo || !hora) {
+    if (!seleccion || !hora || (!esCombo && !recursoCodigo)) {
       return;
     }
     setReservando(true);
-    setError(null);
-    setResultado(null);
+    limpiar();
+    const inicio = `${fecha}T${hora}:00-03:00`;
+    const pacienteRef = `Patient/${paciente.id}`;
     try {
-      const r = await reservarTurno({
-        pacienteRef: `Patient/${paciente.id}`,
-        servicioCodigo,
-        recursoCodigo,
-        inicio: `${fecha}T${hora}:00-03:00`,
-        prescripcionActiva: prescripcion,
-        confirmar: true,
-      });
-      setResultado(r);
+      if (esCombo) {
+        setResultadoCombo(await reservarCombo({ pacienteRef, comboCodigo: seleccion, inicio, confirmar: true }));
+      } else {
+        setResultado(
+          await reservarTurno({
+            pacienteRef,
+            servicioCodigo: seleccion,
+            recursoCodigo: recursoCodigo as string,
+            inicio,
+            prescripcionActiva: prescripcion,
+            confirmar: true,
+          }),
+        );
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo reservar.');
+      setError(mensajeError(e));
     } finally {
       setReservando(false);
     }
@@ -199,26 +225,28 @@ function PanelReserva({ paciente }: { paciente: Patient }): JSX.Element {
       <Stack gap="sm">
         <Group grow align="flex-end">
           <Select
-            label="Servicio"
-            placeholder="Elegí un servicio"
-            data={SERVICIOS.map((s) => ({ value: s.codigo, label: s.nombre }))}
-            value={servicioCodigo}
+            label="Servicio o combo"
+            placeholder="Elegí qué reservar"
+            data={opciones}
+            value={seleccion}
             onChange={(v) => {
-              setServicioCodigo(v);
+              setSeleccion(v);
               setRecursoCodigo(null);
-              setResultado(null);
+              limpiar();
             }}
             searchable
           />
-          <Select
-            label="Sala / equipo"
-            placeholder={servicio ? 'Elegí la sala' : 'Primero el servicio'}
-            data={salas.map((r) => ({ value: r.codigo, label: r.nombre }))}
-            value={recursoCodigo}
-            onChange={setRecursoCodigo}
-            disabled={!servicio}
-            searchable
-          />
+          {!esCombo && (
+            <Select
+              label="Sala / equipo"
+              placeholder={servicio ? 'Elegí la sala' : 'Primero el servicio'}
+              data={salas.map((r) => ({ value: r.codigo, label: r.nombre }))}
+              value={recursoCodigo}
+              onChange={setRecursoCodigo}
+              disabled={!servicio}
+              searchable
+            />
+          )}
         </Group>
 
         <Group grow align="flex-end">
@@ -233,7 +261,7 @@ function PanelReserva({ paciente }: { paciente: Patient }): JSX.Element {
             }}
           />
           <Select
-            label="Hora"
+            label={esCombo ? 'Hora de inicio' : 'Hora'}
             placeholder={horas.length ? 'Elegí la hora' : 'Cerrado ese día'}
             data={horas}
             value={hora}
@@ -242,6 +270,12 @@ function PanelReserva({ paciente }: { paciente: Patient }): JSX.Element {
             searchable
           />
         </Group>
+
+        {esCombo && (
+          <Text size="xs" c="dimmed">
+            El sistema agenda los componentes en orden (HBOT primero) y elige una sala libre para cada uno.
+          </Text>
+        )}
 
         {servicio?.requierePrescripcion && (
           <Switch
@@ -255,9 +289,9 @@ function PanelReserva({ paciente }: { paciente: Patient }): JSX.Element {
           <Button
             onClick={() => void reservar()}
             loading={reservando}
-            disabled={!servicioCodigo || !recursoCodigo || !hora}
+            disabled={!seleccion || !hora || (!esCombo && !recursoCodigo)}
           >
-            Reservar turno
+            {esCombo ? 'Reservar combo' : 'Reservar turno'}
           </Button>
         </Group>
 
@@ -270,20 +304,35 @@ function PanelReserva({ paciente }: { paciente: Patient }): JSX.Element {
         {resultado?.creado && (
           <Alert color="teal" title="Turno reservado ✓">
             La sala queda ocupada en la agenda.
-            {resultado.advertencias.length > 0 && (
-              <List size="sm" mt="xs">
-                {resultado.advertencias.map((a, i) => (
-                  <List.Item key={i}>{a.mensaje}</List.Item>
-                ))}
-              </List>
-            )}
           </Alert>
         )}
-
         {resultado && !resultado.creado && (
           <Alert color="red" title="No se pudo reservar" icon={<IconShieldX size={16} />}>
             <List size="sm">
               {resultado.bloqueos.map((b, i) => (
+                <List.Item key={i}>
+                  [{b.regla}] {b.mensaje}
+                </List.Item>
+              ))}
+            </List>
+          </Alert>
+        )}
+
+        {resultadoCombo?.creado && (
+          <Alert color="teal" title="Combo reservado ✓">
+            <List size="sm">
+              {resultadoCombo.plan.map((p, i) => (
+                <List.Item key={i}>
+                  {p.desde}–{p.hasta} · {p.servicio} · {p.recurso}
+                </List.Item>
+              ))}
+            </List>
+          </Alert>
+        )}
+        {resultadoCombo && !resultadoCombo.creado && (
+          <Alert color="red" title="No se pudo reservar el combo" icon={<IconShieldX size={16} />}>
+            <List size="sm">
+              {resultadoCombo.bloqueos.map((b, i) => (
                 <List.Item key={i}>
                   [{b.regla}] {b.mensaje}
                 </List.Item>
@@ -316,7 +365,7 @@ function PanelCobro({ paciente }: { paciente: Patient }): JSX.Element {
       const inv = await calcularCobro([{ tipo: 'servicio', codigo: servicio }], `Patient/${paciente.id}`);
       setInvoice(inv);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo calcular el cobro.');
+      setError(mensajeError(e));
     } finally {
       setCalculando(false);
     }

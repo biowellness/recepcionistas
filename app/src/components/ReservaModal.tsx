@@ -16,7 +16,7 @@ import { IconSearch, IconShieldX, IconInfoCircle } from '@tabler/icons-react';
 import type { Patient } from '@medplum/fhirtypes';
 import { getDisplayString } from '@medplum/core';
 import { medplum } from '../medplum';
-import { reservarTurno, type ResultadoReserva } from '../lib/bots';
+import { reservarTurno, mensajeError, type ResultadoReserva } from '../lib/bots';
 import { SERVICIOS } from '@bw/config/catalogo';
 import { RECURSOS_POR_CODIGO, recursosParaCategoria } from '@bw/config/recursos';
 import { generarSlots } from '@bw/lib/slots';
@@ -124,7 +124,7 @@ export function ReservaModal({
         onClose();
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo reservar.');
+      setError(mensajeError(e));
     } finally {
       setReservando(false);
     }
