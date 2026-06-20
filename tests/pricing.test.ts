@@ -70,6 +70,12 @@ describe('Catálogo — Combos v9', () => {
     const r = calcularCobro([{ tipo: 'combo', codigo: 'BIO_LONGEVITY' }], { tc: 1450 });
     expect(r.totalUSD).toBe(340);
   });
+
+  it('Un combo se cobra a su precio de combo convertido a ARS', () => {
+    const r = calcularCobro([{ tipo: 'combo', codigo: 'BIO_LONGEVITY' }], { tc: 1450 });
+    expect(r.totalUSD).toBe(340);
+    expect(r.totalARS).toBe(340 * 1450); // 493.000
+  });
 });
 
 describe('Catálogo — Membresías v9', () => {
