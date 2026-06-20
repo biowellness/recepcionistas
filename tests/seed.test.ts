@@ -8,12 +8,13 @@ describe('Seed — composición', () => {
   it('Construye los grupos de recursos esperados', () => {
     expect(seed.structureDefinitions.length).toBeGreaterThanOrEqual(28);
     expect(seed.accessPolicies.length).toBe(5);
-    expect(seed.activityDefinitions.length).toBe(33);
+    expect(seed.activityDefinitions.length).toBe(36); // 33 + 3 consultas médicas
     expect(seed.combos.length).toBe(9);
     expect(seed.membresias.length).toBe(10);
     expect(seed.paquetes.length).toBe(18);
     expect(seed.locations.length).toBe(13);
     expect(seed.schedules.length).toBe(13);
+    expect(seed.practitioners.length).toBe(3);
   });
 });
 

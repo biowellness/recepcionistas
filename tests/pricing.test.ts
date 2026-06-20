@@ -123,6 +123,26 @@ describe('Pricing — Splits (R-08)', () => {
   });
 });
 
+describe('Consultas médicas (precio en ARS)', () => {
+  it('Se cobran en pesos fijos, sin convertir por TC', () => {
+    const r = calcularCobro([{ tipo: 'servicio', codigo: 'CONSULTA_MED_DALESSANDRO' }], { tc: 1450 });
+    expect(r.totalARS).toBe(120000);
+    expect(r.totalUSD).toBe(0);
+    expect(r.lineas[0]?.moneda).toBe('ARS');
+  });
+
+  it('Cobro mixto USD + consulta ARS suma en ARS', () => {
+    const r = calcularCobro(
+      [
+        { tipo: 'servicio', codigo: 'HBOT_MONO' },
+        { tipo: 'servicio', codigo: 'CONSULTA_MED_DOS_SANTOS' },
+      ],
+      { tc: 1450 },
+    );
+    expect(r.totalARS).toBe(239250 + 120000);
+  });
+});
+
 describe('Conversión a ARS (R-17)', () => {
   it('AC-13: USD 165 a TC 1450 = ARS 239.250', () => {
     expect(usdAArs(165, 1450)).toBe(239250);

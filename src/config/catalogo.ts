@@ -6,6 +6,7 @@
  * IHHT EXPRESS (30 min / USD 60) e IHHT PREMIUM (60 min / USD 120).
  */
 import type { Servicio, Split } from '../domain/types.js';
+import { MEDICOS, codigoConsulta } from './medicos.js';
 
 const BW100: Split = { tipo: 'BW_100' };
 const IV_TB: Split = { tipo: 'IV_TB_85_15', bw: 85, prescriptores: 15 };
@@ -215,7 +216,31 @@ export const SERVICIOS: Servicio[] = [
     split: MASAJE,
     fmAplica: false,
   },
+
+  // ---------------------- 09 · CONSULTAS MÉDICAS (consultorio, precio en ARS) ----------------------
+  ...consultasDeMedicos(),
 ];
+
+/**
+ * Consultas médicas: una por médico. Precio en ARS (pesos), 45 min de atención +
+ * 15 de descanso => el slot ocupa 60 min. Todas usan el único consultorio.
+ */
+function consultasDeMedicos(): Servicio[] {
+  return MEDICOS.map((m) => ({
+    codigo: codigoConsulta(m.codigo),
+    nombre: `Consulta — ${m.nombre}`,
+    categoria: 'CONSULTA' as const,
+    duracionMin: 60,
+    precioUSD: 0,
+    precioARS: m.precioConsultaARS,
+    practitionerCodigo: m.codigo,
+    requierePrescripcion: false,
+    reglaPricing: 'POR_SESION' as const,
+    split: BW100,
+    fmAplica: false,
+    ...(m.precioProvisorio ? { nota: 'Precio provisorio (Director Médico) — confirmar' } : {}),
+  }));
+}
 
 /** Helper para Terapias Biológicas (todas comparten split, regla y flags). */
 function tb(codigo: string, nombre: string, duracionMin: number, precioUSD: number): Servicio[] {

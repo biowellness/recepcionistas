@@ -6,7 +6,7 @@
  *
  * Funciones puras (sin FHIR ni IO) para poder testearlas de punta a punta.
  */
-import type { Servicio, Split } from '../domain/types.js';
+import type { Moneda, Servicio, Split } from '../domain/types.js';
 import { getServicio } from '../config/catalogo.js';
 import { getCombo } from '../config/combos.js';
 import { getMembresia } from '../config/membresias.js';
@@ -135,41 +135,87 @@ export interface LineaCobro {
   codigo: string;
   descripcion: string;
   cantidad: number;
+  /** Moneda de lista de la línea: USD (se convierte) o ARS (consultas, precio fijo). */
+  moneda: Moneda;
   precioUnitarioUSD: number;
   subtotalUSD: number;
+  /** Subtotal de la línea en ARS (lo que efectivamente se cobra). */
+  subtotalARS: number;
   split: DistribucionSplit;
 }
 
 export interface ResultadoCobro {
   lineas: LineaCobro[];
+  /** Total en USD de las líneas en USD (informativo). */
   totalUSD: number;
+  /** Total a cobrar en ARS (todas las líneas). */
   totalARS: number;
   tcAplicado: number;
 }
 
-function precioItemUSD(item: ItemCobro): { precio: number; descripcion: string; servicio?: Servicio } {
-  switch (item.tipo) {
-    case 'servicio': {
-      const s = getServicio(item.codigo);
+/** Construye una línea de cobro, manejando moneda (USD se convierte; ARS es fijo). */
+function construirLinea(item: ItemCobro, tc?: number): LineaCobro {
+  const cantidad = item.cantidad ?? 1;
+
+  if (item.tipo === 'servicio') {
+    const s = getServicio(item.codigo);
+    // Consultas u otros servicios con precio fijo en ARS (no se convierte).
+    if (s.precioARS != null) {
       return {
-        precio: precioSueltoUSD(s, { ocupantes: item.ocupantes ?? 1, fm: item.fm ?? false }),
+        tipo: 'servicio',
+        codigo: item.codigo,
         descripcion: s.nombre,
-        servicio: s,
+        cantidad,
+        moneda: 'ARS',
+        precioUnitarioUSD: 0,
+        subtotalUSD: 0,
+        subtotalARS: Math.round(s.precioARS * cantidad),
+        split: { bwUSD: 0 },
       };
     }
-    case 'combo': {
-      const c = getCombo(item.codigo);
-      return { precio: c.precioUSD, descripcion: c.nombre };
-    }
-    case 'membresia': {
-      const m = getMembresia(item.codigo);
-      return { precio: m.precioMesUSD, descripcion: `Membresía ${m.tier} ${m.intensidad} ${m.variante}` };
-    }
-    case 'paquete': {
-      const p = getPaquete(item.codigo);
-      return { precio: item.fm ? p.totalFMUSD : p.totalUSD, descripcion: `Paquete ${p.codigo}` };
-    }
+    const precio = precioSueltoUSD(s, { ocupantes: item.ocupantes ?? 1, fm: item.fm ?? false });
+    const subtotalUSD = redondearUSD(precio * cantidad);
+    return {
+      tipo: 'servicio',
+      codigo: item.codigo,
+      descripcion: s.nombre,
+      cantidad,
+      moneda: 'USD',
+      precioUnitarioUSD: precio,
+      subtotalUSD,
+      subtotalARS: usdAArs(subtotalUSD, tc),
+      split: calcularSplit(s, subtotalUSD, { insumoUSD: item.insumoUSD }),
+    };
   }
+
+  // Combos / membresías / paquetes: siempre en USD.
+  let precio: number;
+  let descripcion: string;
+  if (item.tipo === 'combo') {
+    const c = getCombo(item.codigo);
+    precio = c.precioUSD;
+    descripcion = c.nombre;
+  } else if (item.tipo === 'membresia') {
+    const m = getMembresia(item.codigo);
+    precio = m.precioMesUSD;
+    descripcion = `Membresía ${m.tier} ${m.intensidad} ${m.variante}`;
+  } else {
+    const p = getPaquete(item.codigo);
+    precio = item.fm ? p.totalFMUSD : p.totalUSD;
+    descripcion = `Paquete ${p.codigo}`;
+  }
+  const subtotalUSD = redondearUSD(precio * cantidad);
+  return {
+    tipo: item.tipo,
+    codigo: item.codigo,
+    descripcion,
+    cantidad,
+    moneda: 'USD',
+    precioUnitarioUSD: precio,
+    subtotalUSD,
+    subtotalARS: usdAArs(subtotalUSD, tc),
+    split: { bwUSD: subtotalUSD },
+  };
 }
 
 /**
@@ -177,30 +223,13 @@ function precioItemUSD(item: ItemCobro): { precio: number; descripcion: string; 
  * medio de pago: el sistema calcula montos, splits y conversión a ARS.
  */
 export function calcularCobro(items: ItemCobro[], opts: { tc?: number } = {}): ResultadoCobro {
-  const lineas: LineaCobro[] = items.map((item) => {
-    const cantidad = item.cantidad ?? 1;
-    const { precio, descripcion, servicio } = precioItemUSD(item);
-    const subtotalUSD = redondearUSD(precio * cantidad);
-    const split = servicio
-      ? calcularSplit(servicio, subtotalUSD, { insumoUSD: item.insumoUSD })
-      : { bwUSD: subtotalUSD };
-    return {
-      tipo: item.tipo,
-      codigo: item.codigo,
-      descripcion,
-      cantidad,
-      precioUnitarioUSD: precio,
-      subtotalUSD,
-      split,
-    };
-  });
-
+  const lineas = items.map((item) => construirLinea(item, opts.tc));
   const totalUSD = redondearUSD(lineas.reduce((acc, l) => acc + l.subtotalUSD, 0));
-  const tcAplicado = resolverTC(opts.tc);
+  const totalARS = lineas.reduce((acc, l) => acc + l.subtotalARS, 0);
   return {
     lineas,
     totalUSD,
-    totalARS: usdAArs(totalUSD, opts.tc),
-    tcAplicado,
+    totalARS,
+    tcAplicado: resolverTC(opts.tc),
   };
 }

@@ -10,7 +10,7 @@
  * después). La prescripción de IV/TB se pasa explícita hasta modelar ServiceRequest.
  */
 import type { BotEvent, MedplumClient } from '@medplum/core';
-import type { Appointment, Flag, Slot } from '@medplum/fhirtypes';
+import type { Appointment, AppointmentParticipant, Flag, Slot } from '@medplum/fhirtypes';
 import type { Servicio } from '../domain/types.js';
 import { getServicio } from '../config/catalogo.js';
 import type { PerfilReserva } from '../config/reglas.js';
@@ -151,6 +151,18 @@ export async function handler(
     extension: [{ url: EXT.recursoFisico, valueString: e.recursoCodigo }],
   });
 
+  const participant: AppointmentParticipant[] = [{ actor: { reference: e.pacienteRef }, status: 'accepted' }];
+  // Consultas: sumar al médico como participante (un consultorio, varios médicos).
+  if (servicio.practitionerCodigo) {
+    const pract = await medplum.searchOne('Practitioner', `identifier=${SYSTEM.medico}|${servicio.practitionerCodigo}`);
+    if (pract?.id) {
+      participant.push({
+        actor: { reference: `Practitioner/${pract.id}`, display: pract.name?.[0]?.text },
+        status: 'accepted',
+      });
+    }
+  }
+
   const appointment: Appointment = await medplum.createResource<Appointment>({
     resourceType: 'Appointment',
     status: 'booked',
@@ -158,7 +170,7 @@ export async function handler(
     start: inicio.toISOString(),
     end: fin.toISOString(),
     slot: [{ reference: `Slot/${slot.id}` }],
-    participant: [{ actor: { reference: e.pacienteRef }, status: 'accepted' }],
+    participant,
     extension: [{ url: EXT.ocupantes, valueInteger: e.ocupantes ?? 1 }],
   });
 

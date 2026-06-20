@@ -21,6 +21,7 @@ base sobre la que se apoya la pantalla de la recepción. Backend **Medplum (FHIR
 | Motor de agenda: Slots + semáforo de salas | ✅ con tests (config provisoria) |
 | Front de recepción (React + Vite) | ✅ login, agenda + semáforo, atención, reserva de turnos |
 | Reserva de turnos (valida + crea Appointment/Slot) | ✅ bot `bw-reservar-turno` |
+| Consultas médicas (3 médicos, 1 consultorio, precio ARS) | ✅ catálogo + `Practitioner` |
 | Harness de tests (casos AC del Anexo A) | ✅ 70 tests |
 | CI (GitHub Actions) | ✅ |
 | Horario + lista definitiva de salas | ✅ confirmado (L-V 08-22, Sáb 08-20; 13 salas) |

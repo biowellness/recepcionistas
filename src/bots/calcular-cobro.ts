@@ -33,7 +33,10 @@ export async function handler(medplum: MedplumClient, event: BotEvent<EntradaCob
     priceComponent: [
       {
         type: 'base',
-        amount: { value: l.subtotalUSD, currency: 'USD' },
+        amount: {
+          value: l.moneda === 'ARS' ? l.subtotalARS : l.subtotalUSD,
+          currency: l.moneda,
+        },
       },
     ],
   }));
