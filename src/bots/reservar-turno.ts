@@ -15,7 +15,7 @@ import type { Servicio } from '../domain/types.js';
 import { getServicio } from '../config/catalogo.js';
 import type { PerfilReserva } from '../config/reglas.js';
 import { EXT, SYSTEM } from '../fhir/identifiers.js';
-import { cargarReservasDelDia, enviarWhatsApp, extraerCodigos, scheduleIdDeRecurso } from './_shared.js';
+import { cargarReservasDelDia, consumirSesionDePlan, enviarWhatsApp, extraerCodigos, scheduleIdDeRecurso, type ConsumoPlan } from './_shared.js';
 
 const fmtFechaHora = new Intl.DateTimeFormat('es-AR', {
   day: '2-digit',
@@ -49,6 +49,8 @@ export interface EntradaReserva {
   prescripcionActiva?: boolean;
   /** Autorización médica que destraba una contraindicación absoluta (R-02). */
   autorizacionMedica?: boolean;
+  /** Coverage (paquete) con el que se paga el turno: consume una sesión y confirma sin seña. */
+  coverageId?: string;
   /** Si es false, solo valida (no crea). Default true. */
   confirmar?: boolean;
 }
@@ -57,6 +59,8 @@ export interface ResultadoReserva extends ResultadoValidacion {
   creado: boolean;
   appointmentId?: string;
   slotId?: string;
+  /** Si se usó un plan: sesiones restantes tras consumir esta. */
+  planRestantes?: number;
 }
 
 export interface ContextoReserva {
@@ -149,6 +153,21 @@ export async function handler(
     };
   }
 
+  // Si se paga con un plan (paquete): consumir una sesión antes de crear (R-10).
+  let consumo: ConsumoPlan | undefined;
+  if (e.coverageId) {
+    try {
+      consumo = await consumirSesionDePlan(medplum, e.coverageId, { tipo: 'servicio', codigo: e.servicioCodigo }, ahora);
+    } catch (err) {
+      return {
+        ok: false,
+        bloqueos: [{ regla: 'R-10', nivel: 'bloqueo', mensaje: (err as Error).message }],
+        advertencias: resultado.advertencias,
+        creado: false,
+      };
+    }
+  }
+
   const slot: Slot = await medplum.createResource<Slot>({
     resourceType: 'Slot',
     status: 'busy',
@@ -170,10 +189,11 @@ export async function handler(
     }
   }
 
-  // Turno TENTATIVO hasta cobrar la seña del 50% (pasa a 'booked' al pagar).
+  // Con plan: turno CONFIRMADO (la sesión ya está paga). Sin plan: TENTATIVO
+  // hasta cobrar la seña del 50% (pasa a 'booked' al pagar).
   const appointment: Appointment = await medplum.createResource<Appointment>({
     resourceType: 'Appointment',
-    status: 'pending',
+    status: consumo ? 'booked' : 'pending',
     description: servicio.nombre,
     start: inicio.toISOString(),
     end: fin.toISOString(),
@@ -184,13 +204,16 @@ export async function handler(
       { url: EXT.ocupantes, valueInteger: e.ocupantes ?? 1 },
       { url: EXT.itemTipo, valueCode: 'servicio' },
       { url: EXT.itemCodigo, valueString: e.servicioCodigo },
+      ...(consumo ? [{ url: EXT.coberturaUsada, valueString: `Coverage/${e.coverageId}` }] : []),
     ],
   });
 
   await enviarWhatsApp(medplum, event.secrets, {
-    template: 'reserva-tentativa',
+    template: consumo ? 'reserva-plan' : 'reserva-tentativa',
     pacienteRef: e.pacienteRef,
-    body: `BioWellness: reservamos tu turno de ${servicio.nombre} para el ${fmtFechaHora.format(inicio)} (tentativo). Aboná la seña del 50% para confirmarlo. 💚`,
+    body: consumo
+      ? `BioWellness: ¡tu turno de ${servicio.nombre} quedó confirmado con tu plan para el ${fmtFechaHora.format(inicio)}! Te quedan ${consumo.restantes} sesiones. ¡Te esperamos! 💚`
+      : `BioWellness: reservamos tu turno de ${servicio.nombre} para el ${fmtFechaHora.format(inicio)} (tentativo). Aboná la seña del 50% para confirmarlo. 💚`,
   });
 
   return {
@@ -198,5 +221,6 @@ export async function handler(
     creado: true,
     appointmentId: appointment.id,
     slotId: slot.id,
+    ...(consumo ? { planRestantes: consumo.restantes } : {}),
   };
 }

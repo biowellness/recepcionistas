@@ -30,6 +30,8 @@ export const EXT = {
   itemTipo: `${BASE}/StructureDefinition/item-tipo`,
   /** Código de catálogo del ítem del turno. */
   itemCodigo: `${BASE}/StructureDefinition/item-codigo`,
+  /** Coverage (plan) que cubre el turno: si está, no requiere seña. */
+  coberturaUsada: `${BASE}/StructureDefinition/cobertura-usada`,
   // ActivityDefinition (catálogo)
   precioUsd: `${BASE}/StructureDefinition/precio-usd`,
   precioArs: `${BASE}/StructureDefinition/precio-ars`,
@@ -45,6 +47,14 @@ export const EXT = {
   sesionesMes: `${BASE}/StructureDefinition/sesiones-mes`,
   sesionesUsadas: `${BASE}/StructureDefinition/sesiones-usadas`,
   precioBloqueadoFm: `${BASE}/StructureDefinition/precio-bloqueado-fm`,
+  /** Tipo de cobertura: 'membresia' | 'paquete'. */
+  tipoCobertura: `${BASE}/StructureDefinition/tipo-cobertura`,
+  /** Código del plan (membresía o paquete) del catálogo. */
+  planCodigo: `${BASE}/StructureDefinition/plan-codigo`,
+  /** Sesiones totales del paquete. */
+  sesionesTotal: `${BASE}/StructureDefinition/sesiones-total`,
+  /** Ciclo facturado (YYYY-MM) de la membresía. */
+  cicloMes: `${BASE}/StructureDefinition/ciclo-mes`,
   // Invoice / ChargeItem
   montoSplitBw: `${BASE}/StructureDefinition/monto-split-bw`,
   montoSplitProfesional: `${BASE}/StructureDefinition/monto-split-profesional`,

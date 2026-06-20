@@ -54,6 +54,8 @@ export interface ReservaInput {
   ocupantes?: number;
   prescripcionActiva?: boolean;
   autorizacionMedica?: boolean;
+  /** Coverage (paquete) con el que se paga el turno: confirma sin seña. */
+  coverageId?: string;
   /** Si es false, solo valida (no crea). */
   confirmar?: boolean;
 }
@@ -71,6 +73,8 @@ export interface ResultadoReserva {
   creado: boolean;
   appointmentId?: string;
   slotId?: string;
+  /** Si se usó un plan: sesiones restantes tras consumir esta. */
+  planRestantes?: number;
 }
 
 /** Llama al bot de reserva: valida y (si confirma) crea el turno + Slot ocupado. */
@@ -84,6 +88,8 @@ export interface ComboInput {
   comboCodigo: string;
   inicio: string;
   autorizacionMedica?: boolean;
+  /** Coverage (membresía) con el que se paga el combo: confirma sin seña. */
+  coverageId?: string;
   confirmar?: boolean;
 }
 
@@ -101,6 +107,8 @@ export interface ResultadoCombo {
   creado: boolean;
   plan: ItemPlanDTO[];
   appointmentIds?: string[];
+  /** Si se usó una membresía: sesiones restantes tras consumir esta. */
+  planRestantes?: number;
 }
 
 /** Llama al bot de combo: agenda los componentes en secuencia (HBOT primero). */
@@ -143,4 +151,28 @@ export interface ResultadoLinkMP {
 export async function linkMercadoPago(appointmentId: string): Promise<ResultadoLinkMP> {
   const id = await botIdPorNombre('bw-link-mercadopago');
   return (await medplum.executeBot(id, { appointmentId })) as ResultadoLinkMP;
+}
+
+export interface AsignarPlanInput {
+  pacienteRef: string;
+  tipo: 'membresia' | 'paquete';
+  planCodigo: string;
+  fm?: boolean;
+  medioPago?: string;
+  cobrar?: boolean;
+}
+
+export interface ResultadoAsignarPlan {
+  ok: boolean;
+  mensaje?: string;
+  coverageId?: string;
+  invoiceId?: string;
+  totalARS?: number;
+  sesiones?: number;
+}
+
+/** Asigna una membresía/paquete al paciente (crea Coverage + cobro inicial + WhatsApp). */
+export async function asignarPlan(input: AsignarPlanInput): Promise<ResultadoAsignarPlan> {
+  const id = await botIdPorNombre('bw-asignar-plan');
+  return (await medplum.executeBot(id, input)) as ResultadoAsignarPlan;
 }

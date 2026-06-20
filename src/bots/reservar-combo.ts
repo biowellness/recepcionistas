@@ -26,7 +26,7 @@ import {
   type ReservaRecurso,
   type ResultadoValidacion,
 } from '../lib/reglas-turno.js';
-import { cargarReservasDelDia, enviarWhatsApp, extraerCodigos, scheduleIdDeRecurso } from './_shared.js';
+import { cargarReservasDelDia, consumirSesionDePlan, enviarWhatsApp, extraerCodigos, scheduleIdDeRecurso, type ConsumoPlan } from './_shared.js';
 
 export interface EntradaCombo {
   pacienteRef: string;
@@ -35,6 +35,8 @@ export interface EntradaCombo {
   inicio: string;
   perfil?: PerfilReserva;
   autorizacionMedica?: boolean;
+  /** Coverage (membresía) con el que se paga el combo: consume una sesión y confirma sin seña. */
+  coverageId?: string;
   /** Si es false, solo valida/planifica (no crea). Default true. */
   confirmar?: boolean;
 }
@@ -50,6 +52,8 @@ export interface ResultadoCombo extends ResultadoValidacion {
   creado: boolean;
   plan: ItemPlanDTO[];
   appointmentIds?: string[];
+  /** Si se usó una membresía: sesiones restantes tras consumir esta. */
+  planRestantes?: number;
 }
 
 interface ItemPlan {
@@ -183,6 +187,22 @@ export async function handler(medplum: MedplumClient, event: BotEvent<EntradaCom
     return { ...resultado, creado: false, plan: planDTO };
   }
 
+  // Si se paga con una membresía: consumir una sesión antes de crear (R-10).
+  let consumo: ConsumoPlan | undefined;
+  if (e.coverageId) {
+    try {
+      consumo = await consumirSesionDePlan(medplum, e.coverageId, { tipo: 'combo', codigo: e.comboCodigo }, ahora);
+    } catch (err) {
+      return {
+        ok: false,
+        bloqueos: [{ regla: 'R-10', nivel: 'bloqueo', mensaje: (err as Error).message }],
+        advertencias: resultado.advertencias,
+        creado: false,
+        plan: planDTO,
+      };
+    }
+  }
+
   // Crear todos los componentes (vinculados por un identifier de combo).
   const comboInstanceId = randomUUID();
   const appointmentIds: string[] = [];
@@ -202,7 +222,8 @@ export async function handler(medplum: MedplumClient, event: BotEvent<EntradaCom
     });
     const appt = await medplum.createResource<Appointment>({
       resourceType: 'Appointment',
-      status: 'pending', // tentativo hasta cobrar la seña del 50%
+      // Con membresía: confirmado (sesión paga). Sin plan: tentativo hasta la seña.
+      status: consumo ? 'booked' : 'pending',
       description: `${combo.nombre} · ${item.servicioNombre}`,
       start: item.inicio.toISOString(),
       end: item.fin.toISOString(),
@@ -215,6 +236,7 @@ export async function handler(medplum: MedplumClient, event: BotEvent<EntradaCom
         { url: EXT.ocupantes, valueInteger: item.ocupantes },
         { url: EXT.itemTipo, valueCode: 'combo' },
         { url: EXT.itemCodigo, valueString: e.comboCodigo },
+        ...(consumo ? [{ url: EXT.coberturaUsada, valueString: `Coverage/${e.coverageId}` }] : []),
       ],
     });
     if (appt.id) {
@@ -224,10 +246,18 @@ export async function handler(medplum: MedplumClient, event: BotEvent<EntradaCom
   }
 
   await enviarWhatsApp(medplum, event.secrets, {
-    template: 'reserva-tentativa',
+    template: consumo ? 'reserva-plan' : 'reserva-tentativa',
     pacienteRef: e.pacienteRef,
-    body: `BioWellness: reservamos tu ${combo.nombre} para las ${fmtHora(inicio)} (tentativo). Aboná la seña del 50% para confirmarlo. 💚`,
+    body: consumo
+      ? `BioWellness: ¡tu ${combo.nombre} quedó confirmado con tu membresía para las ${fmtHora(inicio)}! Te quedan ${consumo.restantes} sesiones este mes. ¡Te esperamos! 💚`
+      : `BioWellness: reservamos tu ${combo.nombre} para las ${fmtHora(inicio)} (tentativo). Aboná la seña del 50% para confirmarlo. 💚`,
   });
 
-  return { ...resultado, creado: true, plan: planDTO, appointmentIds };
+  return {
+    ...resultado,
+    creado: true,
+    plan: planDTO,
+    appointmentIds,
+    ...(consumo ? { planRestantes: consumo.restantes } : {}),
+  };
 }
