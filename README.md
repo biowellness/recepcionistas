@@ -22,7 +22,7 @@ base sobre la que se apoya la pantalla de la recepción. Backend **Medplum (FHIR
 | Front de recepción (React + Vite) | ✅ esqueleto: login, agenda + semáforo, atención |
 | Harness de tests (casos AC del Anexo A) | ✅ 62 tests |
 | CI (GitHub Actions) | ✅ |
-| Horario + lista definitiva de salas | ⏳ pendiente de Andrés (para datos reales de agenda) |
+| Horario + lista definitiva de salas | ✅ confirmado (L-V 08-22, Sáb 08-20; 13 salas) |
 | Contraindicaciones | ⚠️ borrador, pendiente validación médica |
 
 Ver [`docs/decisiones-pendientes.md`](docs/decisiones-pendientes.md) para lo que falta definir.
