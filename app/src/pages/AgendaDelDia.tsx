@@ -100,8 +100,15 @@ export function AgendaDelDia(): JSX.Element {
 
 function SalaCard({ sala }: { sala: SalaEstado }): JSX.Element {
   const sinAgenda = sala.slotsTotales === 0;
+  const tieneTurnos = sala.turnos.length > 0;
   return (
-    <Card withBorder shadow="sm" radius="md" padding="lg">
+    <Card
+      withBorder
+      shadow="sm"
+      radius="md"
+      padding="lg"
+      style={tieneTurnos ? { borderColor: 'var(--mantine-color-red-4)', borderWidth: 2 } : undefined}
+    >
       <Group justify="space-between" align="flex-start" wrap="nowrap">
         <Text fw={600} size="lg" lineClamp={2}>
           {sala.nombre}
@@ -115,8 +122,13 @@ function SalaCard({ sala }: { sala: SalaEstado }): JSX.Element {
             Sin agenda generada
           </Badge>
         ) : (
-          <Badge color="teal" variant="light">
+          <Badge color={tieneTurnos ? 'orange' : 'teal'} variant="light">
             {sala.slotsLibres} libres / {sala.slotsTotales} franjas
+          </Badge>
+        )}
+        {tieneTurnos && (
+          <Badge color="red" variant="filled">
+            {sala.turnos.length} {sala.turnos.length === 1 ? 'turno' : 'turnos'} hoy
           </Badge>
         )}
         {sala.comparteEquipo && (
@@ -125,6 +137,16 @@ function SalaCard({ sala }: { sala: SalaEstado }): JSX.Element {
           </Badge>
         )}
       </Group>
+
+      {tieneTurnos && (
+        <Group gap={6} mt="sm">
+          {sala.turnos.map((t, i) => (
+            <Badge key={i} color="red" variant="light" radius="sm">
+              {t.desde}–{t.hasta}
+            </Badge>
+          ))}
+        </Group>
+      )}
     </Card>
   );
 }
