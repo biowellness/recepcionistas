@@ -15,7 +15,16 @@ import type { Servicio } from '../domain/types.js';
 import { getServicio } from '../config/catalogo.js';
 import type { PerfilReserva } from '../config/reglas.js';
 import { EXT, SYSTEM } from '../fhir/identifiers.js';
-import { cargarReservasDelDia, extraerCodigos, scheduleIdDeRecurso } from './_shared.js';
+import { cargarReservasDelDia, enviarWhatsApp, extraerCodigos, scheduleIdDeRecurso } from './_shared.js';
+
+const fmtFechaHora = new Intl.DateTimeFormat('es-AR', {
+  day: '2-digit',
+  month: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+  timeZone: 'America/Argentina/Buenos_Aires',
+});
 import {
   combinar,
   recomendarHbotPrevio,
@@ -161,9 +170,10 @@ export async function handler(
     }
   }
 
+  // Turno TENTATIVO hasta cobrar la seña del 50% (pasa a 'booked' al pagar).
   const appointment: Appointment = await medplum.createResource<Appointment>({
     resourceType: 'Appointment',
-    status: 'booked',
+    status: 'pending',
     description: servicio.nombre,
     start: inicio.toISOString(),
     end: fin.toISOString(),
@@ -172,7 +182,15 @@ export async function handler(
     extension: [
       { url: EXT.recursoFisico, valueString: e.recursoCodigo },
       { url: EXT.ocupantes, valueInteger: e.ocupantes ?? 1 },
+      { url: EXT.itemTipo, valueCode: 'servicio' },
+      { url: EXT.itemCodigo, valueString: e.servicioCodigo },
     ],
+  });
+
+  await enviarWhatsApp(medplum, event.secrets, {
+    template: 'reserva-tentativa',
+    pacienteRef: e.pacienteRef,
+    body: `BioWellness: reservamos tu turno de ${servicio.nombre} para el ${fmtFechaHora.format(inicio)} (tentativo). Aboná la seña del 50% para confirmarlo. 💚`,
   });
 
   return {

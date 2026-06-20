@@ -23,6 +23,7 @@ base sobre la que se apoya la pantalla de la recepción. Backend **Medplum (FHIR
 | Reserva de turnos (valida + crea Appointment/Slot) | ✅ bot `bw-reservar-turno` |
 | Reserva de combos en secuencia (HBOT primero, auto-sala) | ✅ bot `bw-reservar-combo` |
 | Check-in / check-out + estados en el timeline | ✅ bot `bw-estado-turno` |
+| Reserva con seña 50% (confirma turno) + WhatsApp | ✅ bots `bw-pagar-sena` / `bw-link-mercadopago` |
 | Consultas médicas (3 médicos, 1 consultorio, precio ARS) | ✅ catálogo + `Practitioner` |
 | Harness de tests (casos AC del Anexo A) | ✅ 70 tests |
 | CI (GitHub Actions) | ✅ |

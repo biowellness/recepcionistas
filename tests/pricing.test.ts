@@ -8,6 +8,7 @@ import {
   cascadaTB,
   calcularSplit,
   calcularCobro,
+  calcularSenaARS,
 } from '../src/lib/pricing.js';
 import { usdAArs, redondearUSD } from '../src/lib/money.js';
 
@@ -159,6 +160,26 @@ describe('Conversión a ARS (R-17)', () => {
     expect(r.totalUSD).toBe(165);
     expect(r.totalARS).toBe(239250);
     expect(r.tcAplicado).toBe(1450);
+  });
+});
+
+describe('Seña (50%)', () => {
+  it('Servicio en USD: seña = 50% del total en ARS', () => {
+    const { totalARS, senaARS } = calcularSenaARS([{ tipo: 'servicio', codigo: 'HBOT_MONO' }], { tc: 1450 });
+    expect(totalARS).toBe(239250);
+    expect(senaARS).toBe(119625);
+  });
+
+  it('Combo: seña = 50% del precio de combo en ARS', () => {
+    const { totalARS, senaARS } = calcularSenaARS([{ tipo: 'combo', codigo: 'BIO_LONGEVITY' }], { tc: 1450 });
+    expect(totalARS).toBe(340 * 1450);
+    expect(senaARS).toBe((340 * 1450) / 2);
+  });
+
+  it('Consulta en ARS: seña = 50% del precio fijo', () => {
+    const { totalARS, senaARS } = calcularSenaARS([{ tipo: 'servicio', codigo: 'CONSULTA_MED_DALESSANDRO' }]);
+    expect(totalARS).toBe(120000);
+    expect(senaARS).toBe(60000);
   });
 });
 

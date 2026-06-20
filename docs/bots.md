@@ -14,6 +14,8 @@ deployan al runtime **`awslambda`** de Medplum (configurable con la env
 | `bw-reservar-turno` | Valida y, si está OK, **crea** el turno (`Appointment` + `Slot` ocupado). | `executeBot` desde el front (Reservar turno). |
 | `bw-reservar-combo` | Agenda un **combo** en secuencia (HBOT primero), auto-asignando sala por componente. | `executeBot` desde el front (Reservar combo). |
 | `bw-estado-turno` | Check-in/out: cambia el estado del turno, gestiona el `Encounter` y libera la sala al completar/cancelar. | `executeBot` desde el front (clic en el turno). |
+| `bw-pagar-sena` | Registra la seña (50%), confirma el turno (pending→booked) y envía WhatsApp de confirmación. | `executeBot` (clic en turno tentativo). |
+| `bw-link-mercadopago` | Genera un link de MercadoPago por el monto de la seña (si está configurado el token). | `executeBot` (botón en turno tentativo). |
 | `bw-enviar-whatsapp` | Envía WhatsApp (Twilio) y registra `Communication`. | `executeBot` por evento o manual. |
 
 ## Deploy
@@ -46,7 +48,13 @@ de Medplum (Project → Secrets):
 - `TWILIO_WHATSAPP_FROM` (formato `whatsapp:+549...`)
 
 Sin secretos, el bot no envía pero igual registra la `Communication` en estado
-`preparation` (útil en pruebas).
+`preparation` (útil en pruebas). El WhatsApp se dispara automático **al reservar**
+(turno tentativo) y **al pagar la seña** (confirmado). El destinatario sale del
+`Patient.telecom` (teléfono).
+
+Para el link de MercadoPago (seña), además: `MERCADOPAGO_ACCESS_TOKEN`. Si no
+está, el flujo manual de seña sigue funcionando y el bot de link avisa que MP no
+está configurado.
 
 ## Permisos del bot
 
