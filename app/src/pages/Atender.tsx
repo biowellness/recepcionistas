@@ -347,22 +347,26 @@ function PanelReserva({ paciente }: { paciente: Patient }): JSX.Element {
 
 /** Cobro: el front no calcula nada; le pide el monto al bot calcular-cobro. */
 function PanelCobro({ paciente }: { paciente: Patient }): JSX.Element {
-  const [servicio, setServicio] = useState<string | null>(null);
+  const [seleccion, setSeleccion] = useState<string | null>(null);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [calculando, setCalculando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const opciones = SERVICIOS.map((s) => ({ value: s.codigo, label: `${s.nombre}` }));
+  const opciones = [
+    { group: 'Combos', items: COMBOS.map((c) => ({ value: c.codigo, label: c.nombre })) },
+    { group: 'Servicios', items: SERVICIOS.map((s) => ({ value: s.codigo, label: s.nombre })) },
+  ];
 
   async function calcular(): Promise<void> {
-    if (!servicio) {
+    if (!seleccion) {
       return;
     }
+    const tipo = COMBOS.some((c) => c.codigo === seleccion) ? 'combo' : 'servicio';
     setCalculando(true);
     setError(null);
     setInvoice(null);
     try {
-      const inv = await calcularCobro([{ tipo: 'servicio', codigo: servicio }], `Patient/${paciente.id}`);
+      const inv = await calcularCobro([{ tipo, codigo: seleccion }], `Patient/${paciente.id}`);
       setInvoice(inv);
     } catch (e) {
       setError(mensajeError(e));
@@ -381,15 +385,15 @@ function PanelCobro({ paciente }: { paciente: Patient }): JSX.Element {
       </Group>
       <Group align="flex-end">
         <Select
-          label="Servicio"
-          placeholder="Elegí un servicio"
+          label="Servicio o combo"
+          placeholder="Elegí qué cobrar"
           data={opciones}
-          value={servicio}
-          onChange={setServicio}
+          value={seleccion}
+          onChange={setSeleccion}
           searchable
           w={360}
         />
-        <Button onClick={() => void calcular()} loading={calculando} disabled={!servicio}>
+        <Button onClick={() => void calcular()} loading={calculando} disabled={!seleccion}>
           Calcular cobro
         </Button>
       </Group>
