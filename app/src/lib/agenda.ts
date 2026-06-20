@@ -1,8 +1,9 @@
-import type { Schedule, Slot } from '@medplum/fhirtypes';
+import type { Slot } from '@medplum/fhirtypes';
 import { medplum } from '../medplum';
-import { estadoRecurso, type ColorSala, type TurnoVentana } from '@bw/lib/slots';
+import { estadoRecurso, generarSlots, type ColorSala, type TurnoVentana } from '@bw/lib/slots';
+import { RECURSOS } from '@bw/config/recursos';
+import { HORARIO_SEMANAL } from '@bw/config/horario';
 import { EXT } from '@bw/fhir/identifiers';
-import { RECURSOS_POR_CODIGO } from '@bw/config/recursos';
 
 export interface SalaEstado {
   codigo: string;
@@ -21,57 +22,60 @@ function hoyRango(): { desde: string; hasta: string } {
   return { desde: inicio.toISOString(), hasta: fin.toISOString() };
 }
 
-function leerExt(sch: Schedule, url: string): { valueString?: string; valueBoolean?: boolean } | undefined {
-  return sch.extension?.find((e) => e.url === url);
+function seSolapan(a: TurnoVentana, b: TurnoVentana): boolean {
+  return a.inicio < b.fin && b.inicio < a.fin;
 }
 
 /**
- * Carga las salas (Schedule) y calcula el semáforo del día de cada una a partir
- * de sus Slots ocupados. Si no hay agenda generada, la sala figura libre (verde).
+ * Estado de cada sala para HOY. Las franjas se calculan localmente desde el
+ * horario confirmado (no se materializan Slots "libres" en FHIR). Los turnos
+ * ocupados se leen de Medplum (Slots con estado distinto de 'free').
  */
 export async function cargarSalas(): Promise<SalaEstado[]> {
-  const schedules = await medplum.searchResources('Schedule', { _count: 100 });
-  const { desde, hasta } = hoyRango();
   const ahora = new Date();
 
-  const salas: SalaEstado[] = [];
-  for (const sch of schedules) {
-    // Solo salas canónicas (las del catálogo). Ignora Schedules de otro origen,
-    // la sede y posibles duplicados que no tengan nuestro código de recurso.
-    const codigo = leerExt(sch, EXT.recursoFisico)?.valueString;
-    if (!codigo || !RECURSOS_POR_CODIGO.has(codigo)) {
-      continue;
-    }
-    const nombre = sch.actor?.[0]?.display ?? codigo;
-    const comparteEquipo = leerExt(sch, EXT.comparteTumbona)?.valueBoolean ?? false;
-
-    let slotsTotales = 0;
-    let slotsLibres = 0;
-    let ocupados: TurnoVentana[] = [];
-
-    if (sch.id) {
-      const slots: Slot[] = await medplum.searchResources('Slot', {
-        schedule: `Schedule/${sch.id}`,
-        start: `ge${desde}`,
-        _count: 300,
-      });
-      const delDia = slots.filter((s) => s.start && s.start <= hasta);
-      slotsTotales = delDia.length;
-      slotsLibres = delDia.filter((s) => s.status === 'free').length;
-      ocupados = delDia
-        .filter((s) => s.status && s.status !== 'free' && s.start && s.end)
-        .map((s) => ({ inicio: new Date(s.start as string), fin: new Date(s.end as string) }));
-    }
-
-    salas.push({
-      codigo,
-      nombre,
-      color: estadoRecurso(ahora, ocupados),
-      slotsLibres,
-      slotsTotales,
-      comparteEquipo,
-    });
+  // Franjas de hoy por recurso, según el horario del centro.
+  const slotsHoy = generarSlots(RECURSOS, HORARIO_SEMANAL, { desde: ahora, dias: 1 });
+  const franjasPorRecurso = new Map<string, TurnoVentana[]>();
+  for (const s of slotsHoy) {
+    const arr = franjasPorRecurso.get(s.recursoCodigo) ?? [];
+    arr.push({ inicio: new Date(s.inicio), fin: new Date(s.fin) });
+    franjasPorRecurso.set(s.recursoCodigo, arr);
   }
 
-  return salas.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  // Turnos ocupados de hoy (Slots no-libres), agrupados por código de recurso.
+  const { desde, hasta } = hoyRango();
+  const ocupadosPorRecurso = new Map<string, TurnoVentana[]>();
+  try {
+    const busy: Slot[] = await medplum.searchResources('Slot', {
+      status: 'busy',
+      start: `ge${desde}`,
+      _count: 1000,
+    });
+    for (const sl of busy) {
+      const code = sl.extension?.find((e) => e.url === EXT.recursoFisico)?.valueString;
+      if (!code || !sl.start || !sl.end || sl.start > hasta) {
+        continue;
+      }
+      const arr = ocupadosPorRecurso.get(code) ?? [];
+      arr.push({ inicio: new Date(sl.start), fin: new Date(sl.end) });
+      ocupadosPorRecurso.set(code, arr);
+    }
+  } catch {
+    // Sin turnos cargados todavía: todas las salas quedan libres.
+  }
+
+  return RECURSOS.map((r) => {
+    const franjas = franjasPorRecurso.get(r.codigo) ?? [];
+    const ocupados = ocupadosPorRecurso.get(r.codigo) ?? [];
+    const libres = franjas.filter((f) => !ocupados.some((o) => seSolapan(f, o))).length;
+    return {
+      codigo: r.codigo,
+      nombre: r.nombre,
+      color: estadoRecurso(ahora, ocupados),
+      slotsLibres: libres,
+      slotsTotales: franjas.length,
+      comparteEquipo: Boolean(r.comparteCon?.length),
+    };
+  }).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 }
