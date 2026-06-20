@@ -16,7 +16,7 @@ base sobre la que se apoya la pantalla de la recepción. Backend **Medplum (FHIR
 | Motor de precios (USD→ARS, splits, cascada TB) | ✅ con tests |
 | Motor de reglas de agenda (R-01..R-14) | ✅ con tests |
 | Extensiones FHIR + AccessPolicies (recepción) | ✅ |
-| Bots: calcular-cobro · validar-turno · enviar-whatsapp | ✅ |
+| Bots: calcular-cobro · validar-turno · enviar-whatsapp | ✅ + deploy (`npm run deploy:bots`) |
 | Seed del catálogo (idempotente) | ✅ (`--dry-run` sin servidor) |
 | Motor de agenda: Slots + semáforo de salas | ✅ con tests (config provisoria) |
 | Front de recepción (React + Vite) | ✅ esqueleto: login, agenda + semáforo, atención |
@@ -55,7 +55,8 @@ npm run seed               # carga el catálogo en Medplum (requiere credenciale
 | `npm run limpiar` | Lista Schedules ajenos/duplicados (dry-run); `-- --apply` los borra |
 | `npm run dev` | **Levanta el front de recepción en http://localhost:5173** |
 | `npm run build:app` | Build de producción del front |
-| `npm run deploy:bots` | Deploy de los Bots a Medplum (medplum CLI) |
+| `npm run bots:bundle` | Bundlea los Bots y muestra tamaños (sin conectarse) |
+| `npm run deploy:bots` | Crea + bundlea + deploya los Bots a Medplum (ver `docs/bots.md`) |
 
 ## Estructura
 
@@ -100,6 +101,7 @@ Pantallas del esqueleto:
 ## Documentación
 
 - [`docs/bloque-0.md`](docs/bloque-0.md) — alcance técnico y Definition of Done
+- [`docs/bots.md`](docs/bots.md) — los 3 bots, deploy y secretos
 - [`docs/reglas-negocio.md`](docs/reglas-negocio.md) — reglas R-01..R-18
 - [`docs/modelo-datos-fhir.md`](docs/modelo-datos-fhir.md) — recursos y extensiones FHIR
 - [`docs/decisiones-pendientes.md`](docs/decisiones-pendientes.md) — decisiones abiertas
