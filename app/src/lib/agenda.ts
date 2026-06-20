@@ -5,6 +5,11 @@ import { RECURSOS } from '@bw/config/recursos';
 import { HORARIO_SEMANAL } from '@bw/config/horario';
 import { EXT } from '@bw/fhir/identifiers';
 
+export interface TurnoAgenda {
+  desde: string;
+  hasta: string;
+}
+
 export interface SalaEstado {
   codigo: string;
   nombre: string;
@@ -12,6 +17,19 @@ export interface SalaEstado {
   slotsLibres: number;
   slotsTotales: number;
   comparteEquipo: boolean;
+  /** Turnos ocupados de hoy (para mostrar la ocupación del día). */
+  turnos: TurnoAgenda[];
+}
+
+const fmtHora = new Intl.DateTimeFormat('es-AR', {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+  timeZone: 'America/Argentina/Buenos_Aires',
+});
+
+function hhmm(d: Date): string {
+  return fmtHora.format(d);
 }
 
 function hoyRango(): { desde: string; hasta: string } {
@@ -67,7 +85,9 @@ export async function cargarSalas(): Promise<SalaEstado[]> {
 
   return RECURSOS.map((r) => {
     const franjas = franjasPorRecurso.get(r.codigo) ?? [];
-    const ocupados = ocupadosPorRecurso.get(r.codigo) ?? [];
+    const ocupados = (ocupadosPorRecurso.get(r.codigo) ?? []).sort(
+      (a, b) => a.inicio.getTime() - b.inicio.getTime(),
+    );
     const libres = franjas.filter((f) => !ocupados.some((o) => seSolapan(f, o))).length;
     return {
       codigo: r.codigo,
@@ -76,6 +96,7 @@ export async function cargarSalas(): Promise<SalaEstado[]> {
       slotsLibres: libres,
       slotsTotales: franjas.length,
       comparteEquipo: Boolean(r.comparteCon?.length),
+      turnos: ocupados.map((o) => ({ desde: hhmm(o.inicio), hasta: hhmm(o.fin) })),
     };
   }).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 }
