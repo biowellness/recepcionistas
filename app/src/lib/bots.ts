@@ -108,3 +108,11 @@ export async function reservarCombo(input: ComboInput): Promise<ResultadoCombo> 
   const id = await botIdPorNombre('bw-reservar-combo');
   return (await medplum.executeBot(id, input)) as ResultadoCombo;
 }
+
+export type EstadoTurno = 'arrived' | 'checked-in' | 'fulfilled' | 'cancelled';
+
+/** Cambia el estado de un turno (check-in/out): el bot actualiza Appointment + Encounter + Slot. */
+export async function cambiarEstadoTurno(appointmentId: string, estado: EstadoTurno): Promise<void> {
+  const id = await botIdPorNombre('bw-estado-turno');
+  await medplum.executeBot(id, { appointmentId, estado });
+}

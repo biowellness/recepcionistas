@@ -210,6 +210,7 @@ export async function handler(medplum: MedplumClient, event: BotEvent<EntradaCom
       participant: [{ actor: { reference: e.pacienteRef }, status: 'accepted' }],
       identifier: [{ system: SYSTEM.comboCodigo, value: comboInstanceId }],
       extension: [
+        { url: EXT.recursoFisico, valueString: item.recursoCodigo },
         { url: EXT.ordenProtocolo, valueInteger: orden },
         { url: EXT.ocupantes, valueInteger: item.ocupantes },
       ],

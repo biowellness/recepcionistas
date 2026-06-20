@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Box, Button, Center, Group, Loader, Stack, Text, Title } from '@mantine/core';
 import { IconRefresh, IconInfoCircle } from '@tabler/icons-react';
-import { cargarTimeline, type TimelineData } from '../lib/timeline';
+import { cargarTimeline, type TimelineData, type TurnoTimeline } from '../lib/timeline';
 import { Timeline } from '../components/Timeline';
 import { ReservaModal, type PresetReserva } from '../components/ReservaModal';
+import { TurnoModal } from '../components/TurnoModal';
+import { colorEstado, labelEstado } from '../lib/estados';
 
 const REFRESCO_MS = 60_000;
 
@@ -12,6 +14,7 @@ export function AgendaDelDia(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
   const [preset, setPreset] = useState<PresetReserva | null>(null);
+  const [turnoSel, setTurnoSel] = useState<TurnoTimeline | null>(null);
 
   const refrescar = useCallback(async () => {
     setCargando(true);
@@ -63,23 +66,32 @@ export function AgendaDelDia(): JSX.Element {
       )}
 
       {data && (
-        <Timeline data={data} onReservar={(recursoCodigo, horaMin) => setPreset({ recursoCodigo, horaMin })} />
+        <Timeline
+          data={data}
+          onReservar={(recursoCodigo, horaMin) => setPreset({ recursoCodigo, horaMin })}
+          onTurno={(t) => setTurnoSel(t)}
+        />
       )}
 
       <ReservaModal preset={preset} onClose={() => setPreset(null)} onReservado={() => void refrescar()} />
+      <TurnoModal turno={turnoSel} onClose={() => setTurnoSel(null)} onCambiado={() => void refrescar()} />
     </Stack>
   );
 }
 
+const ESTADOS_LEYENDA = ['booked', 'arrived', 'checked-in', 'fulfilled'];
+
 function Leyenda(): JSX.Element {
   return (
-    <Group gap="md" visibleFrom="md">
-      <Group gap={6}>
-        <Box w={16} h={12} style={{ background: 'var(--mantine-color-red-6)', borderRadius: 3 }} />
-        <Text size="xs" c="dimmed">
-          Turno
-        </Text>
-      </Group>
+    <Group gap="md" visibleFrom="lg">
+      {ESTADOS_LEYENDA.map((e) => (
+        <Group gap={6} key={e}>
+          <Box w={16} h={12} style={{ background: `var(--mantine-color-${colorEstado(e)}-6)`, borderRadius: 3 }} />
+          <Text size="xs" c="dimmed">
+            {labelEstado(e)}
+          </Text>
+        </Group>
+      ))}
       <Group gap={6}>
         <Box w={2} h={14} style={{ background: 'var(--mantine-color-blue-6)' }} />
         <Text size="xs" c="dimmed">

@@ -169,7 +169,10 @@ export async function handler(
     end: fin.toISOString(),
     slot: [{ reference: `Slot/${slot.id}` }],
     participant,
-    extension: [{ url: EXT.ocupantes, valueInteger: e.ocupantes ?? 1 }],
+    extension: [
+      { url: EXT.recursoFisico, valueString: e.recursoCodigo },
+      { url: EXT.ocupantes, valueInteger: e.ocupantes ?? 1 },
+    ],
   });
 
   return {

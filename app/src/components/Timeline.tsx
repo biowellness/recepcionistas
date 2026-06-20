@@ -1,5 +1,6 @@
 import { Box, Group, ScrollArea, Text, Tooltip } from '@mantine/core';
 import type { TimelineData, TurnoTimeline } from '../lib/timeline';
+import { colorEstado, labelEstado } from '../lib/estados';
 
 const COL_W = 46; // ancho de cada franja de 30 min
 const ROW_H = 54;
@@ -15,9 +16,11 @@ function fmt(min: number): string {
 export function Timeline({
   data,
   onReservar,
+  onTurno,
 }: {
   data: TimelineData;
   onReservar?: (recursoCodigo: string, horaMin: number) => void;
+  onTurno?: (turno: TurnoTimeline) => void;
 }): JSX.Element {
   if (!data.abierto) {
     return (
@@ -100,22 +103,23 @@ export function Timeline({
               {(turnosPorSala.get(sala.codigo) ?? []).map((t, i) => (
                 <Tooltip
                   key={i}
-                  label={`${t.paciente || 'Paciente'} · ${t.servicio} · ${fmt(t.inicioMin)}–${fmt(t.finMin)}`}
+                  label={`${t.paciente || 'Paciente'} · ${t.servicio} · ${fmt(t.inicioMin)}–${fmt(t.finMin)} · ${labelEstado(t.estado)}`}
                   withArrow
                 >
                   <Box
+                    onClick={() => onTurno?.(t)}
                     style={{
                       position: 'absolute',
                       left: x(t.inicioMin) + 1,
                       width: Math.max(((t.finMin - t.inicioMin) / 30) * COL_W - 2, COL_W - 2),
                       top: 4,
                       height: ROW_H - 8,
-                      background: 'var(--mantine-color-red-6)',
+                      background: `var(--mantine-color-${colorEstado(t.estado)}-6)`,
                       color: 'white',
                       borderRadius: 6,
                       padding: '3px 6px',
                       overflow: 'hidden',
-                      cursor: 'default',
+                      cursor: onTurno ? 'pointer' : 'default',
                     }}
                   >
                     <Text size="xs" c="white" fw={700} lineClamp={1}>
