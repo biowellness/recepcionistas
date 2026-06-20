@@ -12,7 +12,13 @@ function fmt(min: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-export function Timeline({ data }: { data: TimelineData }): JSX.Element {
+export function Timeline({
+  data,
+  onReservar,
+}: {
+  data: TimelineData;
+  onReservar?: (recursoCodigo: string, horaMin: number) => void;
+}): JSX.Element {
   if (!data.abierto) {
     return (
       <Text c="dimmed" mt="md">
@@ -40,6 +46,7 @@ export function Timeline({ data }: { data: TimelineData }): JSX.Element {
 
   return (
     <ScrollArea type="auto" offsetScrollbars>
+      <style>{`.bw-slot:hover{background:var(--mantine-color-teal-1);}`}</style>
       <Box style={{ minWidth: NAME_W + trackW }}>
         {/* Encabezado de horas */}
         <Group gap={0} wrap="nowrap">
@@ -70,6 +77,26 @@ export function Timeline({ data }: { data: TimelineData }): JSX.Element {
             </Box>
 
             <Box style={{ position: 'relative', width: trackW, height: ROW_H, backgroundImage: lineas }}>
+              {/* Franjas libres clickeables para reservar */}
+              {onReservar &&
+                cols.map((m, i) => {
+                  const ocupado = (turnosPorSala.get(sala.codigo) ?? []).some(
+                    (t) => m >= t.inicioMin && m < t.finMin,
+                  );
+                  if (ocupado) {
+                    return null;
+                  }
+                  return (
+                    <Box
+                      key={`slot-${i}`}
+                      className="bw-slot"
+                      title={`Reservar ${fmt(m)} · ${sala.nombre}`}
+                      onClick={() => onReservar(sala.codigo, m)}
+                      style={{ position: 'absolute', left: i * COL_W, top: 0, width: COL_W, height: ROW_H, cursor: 'pointer' }}
+                    />
+                  );
+                })}
+
               {(turnosPorSala.get(sala.codigo) ?? []).map((t, i) => (
                 <Tooltip
                   key={i}

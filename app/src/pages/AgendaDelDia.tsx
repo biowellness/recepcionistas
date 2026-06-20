@@ -3,6 +3,7 @@ import { Alert, Box, Button, Center, Group, Loader, Stack, Text, Title } from '@
 import { IconRefresh, IconInfoCircle } from '@tabler/icons-react';
 import { cargarTimeline, type TimelineData } from '../lib/timeline';
 import { Timeline } from '../components/Timeline';
+import { ReservaModal, type PresetReserva } from '../components/ReservaModal';
 
 const REFRESCO_MS = 60_000;
 
@@ -10,6 +11,7 @@ export function AgendaDelDia(): JSX.Element {
   const [data, setData] = useState<TimelineData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
+  const [preset, setPreset] = useState<PresetReserva | null>(null);
 
   const refrescar = useCallback(async () => {
     setCargando(true);
@@ -60,7 +62,11 @@ export function AgendaDelDia(): JSX.Element {
         </Center>
       )}
 
-      {data && <Timeline data={data} />}
+      {data && (
+        <Timeline data={data} onReservar={(recursoCodigo, horaMin) => setPreset({ recursoCodigo, horaMin })} />
+      )}
+
+      <ReservaModal preset={preset} onClose={() => setPreset(null)} onReservado={() => void refrescar()} />
     </Stack>
   );
 }
