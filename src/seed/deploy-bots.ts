@@ -106,33 +106,70 @@ async function main(): Promise<void> {
   const projectId = await resolverProjectId(medplum);
   console.log(`\nConectado a Medplum (project ${projectId}).`);
 
-  // 3) Crear (si falta) + deployar cada bot.
+  // 3) Asegurar + deployar cada bot.
   const ids = new Map<string, string>();
+  const faltantes: string[] = [];
   for (const b of BOTS) {
-    let bot = await medplum.searchOne('Bot', `name=${encodeURIComponent(b.name)}`);
-    if (!bot?.id) {
-      const creado = (await medplum.post(`admin/projects/${projectId}/bot`, {
-        name: b.name,
-        description: b.description,
-        runtimeVersion: RUNTIME_VERSION,
-      })) as Bot;
-      bot = await medplum.readResource('Bot', creado.id as string);
-      console.log(`  + Bot creado: ${b.name} (${bot.id})`);
-    } else {
-      console.log(`  = Bot existente: ${b.name} (${bot.id})`);
+    const id = await asegurarBot(medplum, projectId, b);
+    if (!id) {
+      faltantes.push(b.name);
+      continue;
     }
-
-    await medplum.post(medplum.fhirUrl('Bot', bot.id as string, '$deploy'), {
+    await medplum.post(medplum.fhirUrl('Bot', id, '$deploy'), {
       code: bundles.get(b.name),
       filename: basename(b.dist),
     });
     console.log(`    ✓ deployado`);
-    ids.set(b.name, bot.id as string);
+    ids.set(b.name, id);
   }
 
   // 4) Escribir los ids en medplum.config.json.
   escribirConfig(ids);
-  console.log('\nDeploy de bots completado. Ids guardados en medplum.config.json.');
+
+  if (faltantes.length > 0) {
+    console.log('\n⚠️  Faltan crear estos bots (sin permiso de admin del proyecto):');
+    for (const n of faltantes) {
+      console.log(`   - ${n}`);
+    }
+    console.log(
+      '\n   Crealos UNA vez en Medplum (Project Admin → Bots → New Bot) con ese nombre exacto\n' +
+        `   y runtime "${RUNTIME_VERSION}". Después volvé a correr: npm run deploy:bots\n` +
+        '   (el bundle + deploy lo hace el script; solo falta la creación inicial).',
+    );
+  } else {
+    console.log('\nDeploy de bots completado. Ids guardados en medplum.config.json.');
+  }
+}
+
+/** Devuelve el id del bot: lo busca por nombre; si no existe intenta crearlo. */
+async function asegurarBot(medplum: MedplumClient, projectId: string, b: DefBot): Promise<string | undefined> {
+  const existente = await medplum.searchOne('Bot', `name=${encodeURIComponent(b.name)}`);
+  if (existente?.id) {
+    console.log(`  = Bot existente: ${b.name} (${existente.id})`);
+    return existente.id;
+  }
+  try {
+    const creado = (await medplum.post(`admin/projects/${projectId}/bot`, {
+      name: b.name,
+      description: b.description,
+      runtimeVersion: RUNTIME_VERSION,
+    })) as Bot;
+    const bot = await medplum.readResource('Bot', creado.id as string);
+    console.log(`  + Bot creado: ${b.name} (${bot.id})`);
+    return bot.id;
+  } catch (err) {
+    if (esForbidden(err)) {
+      console.warn(`  ! Sin permiso para crear "${b.name}" (la ClientApplication no es admin del proyecto).`);
+      return undefined;
+    }
+    throw err;
+  }
+}
+
+function esForbidden(err: unknown): boolean {
+  const id = (err as { outcome?: { id?: string } })?.outcome?.id;
+  const msg = err instanceof Error ? err.message : String(err);
+  return id === 'forbidden' || /forbidden/i.test(msg);
 }
 
 function escribirConfig(ids: Map<string, string>): void {
