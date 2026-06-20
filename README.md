@@ -19,6 +19,7 @@ base sobre la que se apoya la pantalla de la recepción. Backend **Medplum (FHIR
 | Bots: calcular-cobro · validar-turno · enviar-whatsapp | ✅ |
 | Seed del catálogo (idempotente) | ✅ (`--dry-run` sin servidor) |
 | Motor de agenda: Slots + semáforo de salas | ✅ con tests (config provisoria) |
+| Front de recepción (React + Vite) | ✅ esqueleto: login, agenda + semáforo, atención |
 | Harness de tests (casos AC del Anexo A) | ✅ 62 tests |
 | CI (GitHub Actions) | ✅ |
 | Horario + lista definitiva de salas | ⏳ pendiente de Andrés (para datos reales de agenda) |
@@ -51,6 +52,8 @@ npm run seed               # carga el catálogo en Medplum (requiere credenciale
 | `npm run seed` | Carga el catálogo en Medplum (idempotente) |
 | `npm run seed -- --dry-run` | Construye todos los recursos sin servidor |
 | `npm run seed -- --with-slots [--dias=N]` | Además genera la agenda (Slot) de N días (default 7) |
+| `npm run dev` | **Levanta el front de recepción en http://localhost:5173** |
+| `npm run build:app` | Build de producción del front |
 | `npm run deploy:bots` | Deploy de los Bots a Medplum (medplum CLI) |
 
 ## Estructura
@@ -65,8 +68,31 @@ src/
   bots/        Medplum Bots: calcular-cobro, validar-turno, enviar-whatsapp
   seed/        Builders FHIR + runner del seed
 tests/         Harness de tests (casos AC del Anexo A)
+app/           Front de recepción (React 18 + Vite + Mantine + @medplum/react)
 docs/          Documentación técnica (Bloque 0, reglas, modelo de datos, pendientes)
 ```
+
+## Front de recepción (localhost:5173)
+
+Pantalla simple y rápida para la recepción (no para programadores). Toda la
+inteligencia vive en los Bots y el backend; el front solo orquesta.
+
+```bash
+npm install                       # instala backend + front (workspaces)
+cp app/.env.example app/.env      # VITE_MEDPLUM_BASE_URL=https://api.medplum.com.ar/
+npm run dev                       # abre http://localhost:5173
+```
+
+Pantallas del esqueleto:
+
+- **Login** contra Medplum (SignInForm).
+- **Agenda del día** — todas las salas con su semáforo (verde libre / amarillo por
+  ocupar / rojo ocupada), leído de `Schedule`/`Slot`. Autorefresco cada 60 s.
+- **Atender paciente** — búsqueda por nombre/DNI, banner de seguridad verde/rojo
+  (sin ver la historia clínica) y cobro **calculado por el bot** `calcular-cobro`.
+
+> El cobro requiere los Bots desplegados (`npm run deploy:bots`). Si no están, la
+> pantalla lo avisa con claridad: el front nunca calcula por su cuenta.
 
 ## Documentación
 

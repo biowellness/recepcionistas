@@ -1,0 +1,69 @@
+import type { ReactNode } from 'react';
+import { AppShell, Group, Title, SegmentedControl, Button, Text } from '@mantine/core';
+import { IconCalendarEvent, IconUserHeart, IconLogout } from '@tabler/icons-react';
+import { useMedplum, useMedplumProfile } from '@medplum/react';
+import { getDisplayString } from '@medplum/core';
+
+export type Vista = 'agenda' | 'atender';
+
+interface ShellProps {
+  vista: Vista;
+  onVista: (v: Vista) => void;
+  children: ReactNode;
+}
+
+export function Shell({ vista, onVista, children }: ShellProps): JSX.Element {
+  const medplum = useMedplum();
+  const profile = useMedplumProfile();
+
+  return (
+    <AppShell header={{ height: 64 }} padding="md">
+      <AppShell.Header>
+        <Group h="100%" px="md" justify="space-between" wrap="nowrap">
+          <Group gap="xs" wrap="nowrap">
+            <Title order={3} c="teal.7">
+              BioWellness
+            </Title>
+            <Text c="dimmed" size="sm" visibleFrom="sm">
+              Recepción
+            </Text>
+          </Group>
+
+          <SegmentedControl
+            value={vista}
+            onChange={(v) => onVista(v as Vista)}
+            data={[
+              { value: 'agenda', label: segLabel(<IconCalendarEvent size={16} />, 'Agenda del día') },
+              { value: 'atender', label: segLabel(<IconUserHeart size={16} />, 'Atender paciente') },
+            ]}
+          />
+
+          <Group gap="sm" wrap="nowrap">
+            <Text size="sm" visibleFrom="sm">
+              {profile ? getDisplayString(profile) : ''}
+            </Text>
+            <Button
+              variant="light"
+              color="gray"
+              leftSection={<IconLogout size={16} />}
+              onClick={() => medplum.signOut().then(() => window.location.reload())}
+            >
+              Salir
+            </Button>
+          </Group>
+        </Group>
+      </AppShell.Header>
+
+      <AppShell.Main>{children}</AppShell.Main>
+    </AppShell>
+  );
+}
+
+function segLabel(icon: ReactNode, label: string): ReactNode {
+  return (
+    <Group gap={6} wrap="nowrap">
+      {icon}
+      <span>{label}</span>
+    </Group>
+  );
+}
