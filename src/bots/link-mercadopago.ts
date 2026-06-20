@@ -43,6 +43,9 @@ export async function handler(medplum: MedplumClient, event: BotEvent<EntradaLin
     };
   }
 
+  const appUrl = event.secrets['APP_BASE_URL']?.valueString ?? 'https://recepcion.medplum.com.ar';
+  const notifUrl = event.secrets['MP_WEBHOOK_URL']?.valueString;
+
   const resp = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
     headers: {
@@ -61,6 +64,9 @@ export async function handler(medplum: MedplumClient, event: BotEvent<EntradaLin
       ],
       external_reference: event.input.appointmentId,
       metadata: { appointmentId: event.input.appointmentId },
+      back_urls: { success: appUrl, pending: appUrl, failure: appUrl },
+      auto_return: 'approved',
+      ...(notifUrl ? { notification_url: notifUrl } : {}),
     }),
   });
 

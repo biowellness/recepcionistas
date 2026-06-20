@@ -16,6 +16,7 @@ deployan al runtime **`awslambda`** de Medplum (configurable con la env
 | `bw-estado-turno` | Check-in/out: cambia el estado del turno, gestiona el `Encounter` y libera la sala al completar/cancelar. | `executeBot` desde el front (clic en el turno). |
 | `bw-pagar-sena` | Registra la seña (50%), confirma el turno (pending→booked) y envía WhatsApp de confirmación. | `executeBot` (clic en turno tentativo). |
 | `bw-link-mercadopago` | Genera un link de MercadoPago por el monto de la seña (si está configurado el token). | `executeBot` (botón en turno tentativo). |
+| `bw-webhook-mercadopago` | Webhook de MP: verifica el pago contra la API de MP y confirma el turno automáticamente al acreditarse. | URL pública que llama MercadoPago. |
 | `bw-enviar-whatsapp` | Envía WhatsApp (Twilio) y registra `Communication`. | `executeBot` por evento o manual. |
 
 ## Deploy
@@ -61,6 +62,30 @@ está configurado.
 El bot se crea con su propia `ProjectMembership`. Para mínimo privilegio se le
 puede asignar una `AccessPolicy` acotada (p. ej. solo `Invoice`/`Communication`/
 lectura de catálogo). Pendiente de afinar.
+
+## Webhook de MercadoPago (confirmación automática)
+
+Cuando el paciente paga la seña por el link, MercadoPago avisa a un **webhook** y el
+turno se confirma solo (pending → booked) + WhatsApp.
+
+1. Crear el bot `bw-webhook-mercadopago` (UI) y `npm run deploy:bots`.
+2. Cargar el secret `MERCADOPAGO_ACCESS_TOKEN` (el mismo del link).
+3. En MercadoPago (Tus integraciones → tu app → **Webhooks**, evento **Pagos**),
+   configurar la **URL** del `$execute` del bot:
+   `https://api.medplum.com.ar/fhir/R4/Bot/<id-de-bw-webhook-mercadopago>/$execute`
+   - Como MP no envía headers de auth, se usa una **ClientApplication dedicada** y
+     se embeben las credenciales en la URL:
+     `https://<clientId>:<clientSecret>@api.medplum.com.ar/fhir/R4/Bot/<id>/$execute`
+   - (Esta parte la validamos juntos: confirmamos que MP acepte la URL con
+     credenciales. El bot, además, **verifica el pago contra la API de MP**, así
+     que no confía en el payload.)
+4. (Opcional) Setear el secret `MP_WEBHOOK_URL` con esa URL: el link de pago la
+   manda como `notification_url` por preferencia. Si no, alcanza con la config
+   global del paso 3.
+
+El bot toma el id del pago, hace `GET /v1/payments/{id}` con el token, y si está
+`approved` confirma el turno por su `external_reference` (= appointmentId). Es
+idempotente (los reintentos de MP no duplican la seña).
 
 ## Invocación desde el front
 
