@@ -1,0 +1,65 @@
+import { describe, it, expect } from 'vitest';
+import { buildSeed } from '../src/seed/builders.js';
+import { EXT } from '../src/fhir/identifiers.js';
+
+const seed = buildSeed();
+
+describe('Seed — composición', () => {
+  it('Construye los grupos de recursos esperados', () => {
+    expect(seed.structureDefinitions.length).toBeGreaterThanOrEqual(28);
+    expect(seed.accessPolicies.length).toBe(5);
+    expect(seed.activityDefinitions.length).toBe(33);
+    expect(seed.combos.length).toBe(9);
+    expect(seed.membresias.length).toBe(10);
+    expect(seed.paquetes.length).toBe(18);
+    expect(seed.locations.length).toBe(13);
+    expect(seed.schedules.length).toBe(13);
+  });
+});
+
+describe('Seed — ActivityDefinition (servicios)', () => {
+  it('Cada servicio tiene url, identifier y extensión precio-usd', () => {
+    for (const ad of seed.activityDefinitions) {
+      expect(ad.url).toMatch(/ActivityDefinition\//);
+      expect(ad.identifier?.[0]?.value).toBeTruthy();
+      const precio = ad.extension?.find((e) => e.url === EXT.precioUsd);
+      expect(typeof precio?.valueDecimal).toBe('number');
+    }
+  });
+});
+
+describe('Seed — Combos (PlanDefinition)', () => {
+  it('Tienen secuencia ordenada y orden-protocolo en cada acción', () => {
+    for (const combo of seed.combos) {
+      const sec = combo.extension?.find((e) => e.url === EXT.secuenciaOrdenada);
+      expect(sec?.valueBoolean).toBe(true);
+      for (const action of combo.action ?? []) {
+        const orden = action.extension?.find((e) => e.url === EXT.ordenProtocolo);
+        expect(typeof orden?.valueInteger).toBe('number');
+      }
+    }
+  });
+});
+
+describe('Seed — Contraindicaciones', () => {
+  it('CodeSystem en estado draft con conceptos y propiedad severidad', () => {
+    const cs = seed.contraindicaciones;
+    expect(cs.status).toBe('draft');
+    expect((cs.concept?.length ?? 0)).toBeGreaterThan(0);
+    const c0 = cs.concept?.[0];
+    expect(c0?.property?.some((p) => p.code === 'severidad')).toBe(true);
+  });
+});
+
+describe('Seed — AccessPolicy de recepción (privacidad por diseño)', () => {
+  it('No otorga acceso a recursos clínicos sensibles', () => {
+    const recep = seed.accessPolicies.find((p) => p.name === 'Recepción — Operativo')!;
+    const tipos = (recep.resource ?? []).map((r) => r.resourceType);
+    for (const clinico of ['Observation', 'Condition', 'DiagnosticReport', 'DocumentReference', 'CarePlan', 'MedicationRequest']) {
+      expect(tipos).not.toContain(clinico);
+    }
+    // Sí da acceso a lo operativo.
+    expect(tipos).toContain('Appointment');
+    expect(tipos).toContain('Invoice');
+  });
+});

@@ -1,0 +1,69 @@
+# CLAUDE.md — Guía del repositorio
+
+Contexto y convenciones para desarrollar en este repo (BioWellness · Recepción ·
+Bloque 0). Backend **Medplum (FHIR R4)**, todo en **TypeScript**.
+
+## Principios
+
+1. **La recepción no calcula ni decide nada que el sistema pueda calcular o
+   decidir.** Toda la lógica vive en el backend (`src/lib`, `src/bots`).
+2. **Fuente de verdad del catálogo/precios: Manual de Protocolos v9.** Si un
+   precio o regla difiere entre el código y el Manual, gana el Manual.
+3. **Privacidad por diseño.** La recepción nunca ve la historia clínica completa;
+   solo la señal binaria del banner de seguridad.
+4. **Gobernanza.** Todo cambio de fondo en la arquitectura o en una regla de
+   negocio *core* se consulta con Andrés antes de implementarlo.
+
+## Arquitectura
+
+- `src/domain` — tipos de dominio, agnósticos de FHIR.
+- `src/config` — datos del Manual v9 (catálogo, combos, membresías, paquetes,
+  recursos, horario, contraindicaciones, TC, constantes de reglas).
+- `src/lib` — **lógica pura** (sin FHIR ni red): `money`, `pricing`,
+  `reglas-turno`. Es lo que se testea exhaustivamente.
+- `src/fhir` — identificadores/URLs, extensiones (`StructureDefinition`),
+  AccessPolicies.
+- `src/bots` — Medplum Bots: envoltura fina sobre `src/lib` + integraciones.
+- `src/seed` — builders FHIR + runner idempotente del seed.
+- `tests` — casos AC del Anexo A + integridad del catálogo.
+
+> Regla práctica: **la lógica de negocio nueva va en `src/lib` como función pura
+> y se testea**; el bot solo orquesta (lee/escribe FHIR, llama integraciones).
+
+## Convenciones
+
+- **Idioma:** código, identificadores de negocio y docs en español.
+- **Imports** relativos con extensión `.js` (ESM; `moduleResolution: Bundler`).
+- **Extensiones FHIR:** kebab-case bajo `https://biowellness.ar/fhir/...`,
+  centralizadas en `src/fhir/identifiers.ts`.
+- **Reglas:** cada regla referencia su código `R-xx` y, si tiene, su caso `AC-xx`.
+- **Dinero:** precios de lista en USD; conversión a ARS solo al cobrar
+  (`usdAArs`), nunca hardcodear el TC (usar `resolverTC` / config FHIR).
+
+## Flujo de trabajo
+
+- Ramas: `main` y `staging` con deploy automático (CI: `.github/workflows/ci.yml`).
+- Gate de CI (y antes de pushear): `npm run verify` (typecheck + tests) y
+  `npm run seed -- --dry-run`.
+- Construcción por **slices verticales**: cada pieza se entrega "verde" (sus casos
+  AC pasan) antes de seguir.
+
+## Comandos
+
+```bash
+npm run verify             # typecheck + tests (gate)
+npm run seed -- --dry-run  # construye el catálogo sin servidor
+npm run seed               # carga el catálogo en Medplum (credenciales en .env)
+npm run deploy:bots        # deploy de bots (medplum CLI)
+```
+
+## Secretos
+
+Nunca commitear `.env` ni credenciales. Las integraciones (Twilio, SendGrid,
+MercadoPago, Medplum) se configuran por variables de entorno (`.env.example`).
+MercadoPago tokeniza tarjetas: **nunca** almacenar números de tarjeta.
+
+## Pendientes
+
+Ver [`docs/decisiones-pendientes.md`](docs/decisiones-pendientes.md). Lo bloqueante
+hoy: horario de atención y lista definitiva de salas (para generar `Slot`).

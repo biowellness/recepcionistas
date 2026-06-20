@@ -1,0 +1,39 @@
+# Reglas de negocio (motor de reglas)
+
+Reglas R-xx del Documento de Requerimientos v4 (§7). Cada una indica dónde está
+implementada y su caso de aceptación (AC) cuando aplica. Fuente de precios: Manual v9.
+
+## Agenda / turnos
+
+| Regla | Descripción | Implementación | AC |
+|---|---|---|---|
+| **R-01** | HBOT siempre primero en la secuencia. En combos es obligatorio; previo a IV/TB es recomendado (no obligatorio, según Manual). | `validarOrdenHBOT`, `recomendarHbotPrevio` | AC-02 |
+| **R-02** | Contraindicación absoluta activa no se confirma sin autorización médica; relativa advierte. La recepción solo ve el banner verde/rojo. | `validarContraindicaciones`, `bannerSeguridad` | — |
+| **R-03** | IV Therapy y Terapias Biológicas requieren prescripción activa (Dalessandro / Dos Santos). | `validarPrescripcion` | — |
+| **R-07** | Recursos que comparten equipo no se superponen. Los gabinetes Recovery Pro comparten 2 tumbonas Red Light → **desfasaje ≥ 30 min** (no basta con no solaparse). Capacidad por recurso (HBOT multiplaza 6, biplaza 2). | `validarDesfasajeRecovery`, `validarCapacidadRecurso` | AC-05 |
+| **R-10** | Bloquear reserva al agotar el saldo mensual de la membresía (no acumulable). | `validarSaldoMembresia` | AC-09 |
+| **R-13** | Ventana de reserva: 48 h público · 72 h Standard · 96 h Intensivo · 7 días FM. | `validarVentanaReserva` | — |
+| **R-14** | Cancelación: < 24 h = sesión consumida (salvo fuerza mayor médica); ≥ 24 h devuelve saldo. | `evaluarCancelacion` | — |
+
+## Pricing / cobros
+
+| Regla | Descripción | Implementación | AC |
+|---|---|---|---|
+| **R-04..R-06** | Cálculo del monto según tipo de cliente y reglas de recurso (HBOT por ocupación, Recovery Pro indivisible, etc.). | `precioSueltoUSD`, `calcularCobro` | AC-06 |
+| **R-08** | Splits: HBOT/IHHT/Recovery/Red Light/Compresión/Cryo = 100% BW; IV+TB = 85% BW / 15% médicos (cascada con costo fiscal 25% − insumo − USD 15 enfermería, piso 25% margen); Masajes/Osteopatía = 50/50. | `calcularSplit`, `cascadaTB` | AC-08 |
+| **R-15** | Combos: 20% off lista. | `src/config/combos.ts` | — |
+| **R-16** | Paquetes 5/10/20 → 5/10/15% off; vigencias 15/30/60 días; FM +20% adicional. | `src/config/paquetes.ts` | — |
+| **R-17** | Precios de lista en USD; cobro en ARS al TC vigente (default 1.450, configurable por admin). | `usdAArs`, `resolverTC` | AC-13 |
+
+## Membresías / Founding Members
+
+| Regla | Descripción | Implementación |
+|---|---|---|
+| **R-09** | Founding Members: 50 cupos, 20% off lifetime en sueltas y paquetes (no combos/membresías/TB), precio bloqueado en USD, ventana 7 días, alerta a 40 / bloqueo a 50. | `src/config/reglas.ts` (`FM`), `precioSueltoUSD` (flag `fm`) |
+| **R-11** | Cobro adelantado de membresías días 1-5 (MercadoPago); si falla, alerta + bloqueo de reservas. | `src/config/reglas.ts` (`MEMBRESIA`); bot de cobro recurrente (próximo) |
+| **R-12** | Compromiso mínimo 3 meses; renovación automática; baja avisando 15 días antes; 1 pausa de 30 días/año. | `src/config/reglas.ts` (`MEMBRESIA`) |
+
+## Reglas fuera del alcance del Bloque 0 (referencia)
+
+- **R-18** — Facturación AFIP (WSFE): para IV+TB se factura el 50%; alícuotas a
+  confirmar con contador. (Slice posterior.)
