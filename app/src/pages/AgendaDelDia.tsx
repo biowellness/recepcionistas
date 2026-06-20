@@ -79,7 +79,7 @@ export function AgendaDelDia(): JSX.Element {
   );
 }
 
-const ESTADOS_LEYENDA = ['booked', 'arrived', 'checked-in', 'fulfilled'];
+const ESTADOS_LEYENDA = ['pending', 'booked', 'arrived', 'checked-in', 'fulfilled'];
 
 function Leyenda(): JSX.Element {
   return (

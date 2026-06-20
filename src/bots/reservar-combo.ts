@@ -26,7 +26,7 @@ import {
   type ReservaRecurso,
   type ResultadoValidacion,
 } from '../lib/reglas-turno.js';
-import { cargarReservasDelDia, extraerCodigos, scheduleIdDeRecurso } from './_shared.js';
+import { cargarReservasDelDia, enviarWhatsApp, extraerCodigos, scheduleIdDeRecurso } from './_shared.js';
 
 export interface EntradaCombo {
   pacienteRef: string;
@@ -202,7 +202,7 @@ export async function handler(medplum: MedplumClient, event: BotEvent<EntradaCom
     });
     const appt = await medplum.createResource<Appointment>({
       resourceType: 'Appointment',
-      status: 'booked',
+      status: 'pending', // tentativo hasta cobrar la seña del 50%
       description: `${combo.nombre} · ${item.servicioNombre}`,
       start: item.inicio.toISOString(),
       end: item.fin.toISOString(),
@@ -213,6 +213,8 @@ export async function handler(medplum: MedplumClient, event: BotEvent<EntradaCom
         { url: EXT.recursoFisico, valueString: item.recursoCodigo },
         { url: EXT.ordenProtocolo, valueInteger: orden },
         { url: EXT.ocupantes, valueInteger: item.ocupantes },
+        { url: EXT.itemTipo, valueCode: 'combo' },
+        { url: EXT.itemCodigo, valueString: e.comboCodigo },
       ],
     });
     if (appt.id) {
@@ -220,6 +222,12 @@ export async function handler(medplum: MedplumClient, event: BotEvent<EntradaCom
     }
     orden++;
   }
+
+  await enviarWhatsApp(medplum, event.secrets, {
+    template: 'reserva-tentativa',
+    pacienteRef: e.pacienteRef,
+    body: `BioWellness: reservamos tu ${combo.nombre} para las ${fmtHora(inicio)} (tentativo). Aboná la seña del 50% para confirmarlo. 💚`,
+  });
 
   return { ...resultado, creado: true, plan: planDTO, appointmentIds };
 }

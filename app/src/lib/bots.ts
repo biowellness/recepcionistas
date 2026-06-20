@@ -116,3 +116,31 @@ export async function cambiarEstadoTurno(appointmentId: string, estado: EstadoTu
   const id = await botIdPorNombre('bw-estado-turno');
   await medplum.executeBot(id, { appointmentId, estado });
 }
+
+export interface ResultadoSena {
+  ok: boolean;
+  mensaje?: string;
+  totalARS?: number;
+  senaARS?: number;
+  invoiceId?: string;
+  confirmados?: number;
+}
+
+/** Registra la seña (50%), confirma el turno y dispara el WhatsApp de confirmación. */
+export async function pagarSena(appointmentId: string, medioPago: string): Promise<ResultadoSena> {
+  const id = await botIdPorNombre('bw-pagar-sena');
+  return (await medplum.executeBot(id, { appointmentId, medioPago })) as ResultadoSena;
+}
+
+export interface ResultadoLinkMP {
+  ok: boolean;
+  mensaje?: string;
+  senaARS?: number;
+  url?: string;
+}
+
+/** Genera un link de MercadoPago para pagar la seña. */
+export async function linkMercadoPago(appointmentId: string): Promise<ResultadoLinkMP> {
+  const id = await botIdPorNombre('bw-link-mercadopago');
+  return (await medplum.executeBot(id, { appointmentId })) as ResultadoLinkMP;
+}

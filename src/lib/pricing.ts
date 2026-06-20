@@ -233,3 +233,15 @@ export function calcularCobro(items: ItemCobro[], opts: { tc?: number } = {}): R
     tcAplicado: resolverTC(opts.tc),
   };
 }
+
+/** Fracción de seña por defecto (50%) para confirmar un turno. */
+export const FRACCION_SENA = 0.5;
+
+/** Total a cobrar y seña (50%) de una reserva, en ARS. */
+export function calcularSenaARS(
+  items: ItemCobro[],
+  opts: { tc?: number; fraccion?: number } = {},
+): { totalARS: number; senaARS: number } {
+  const { totalARS } = calcularCobro(items, { tc: opts.tc });
+  return { totalARS, senaARS: Math.round(totalARS * (opts.fraccion ?? FRACCION_SENA)) };
+}

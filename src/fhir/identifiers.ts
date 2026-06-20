@@ -26,6 +26,10 @@ export const EXT = {
   ordenProtocolo: `${BASE}/StructureDefinition/orden-protocolo`,
   requiereHbotPrevio: `${BASE}/StructureDefinition/requiere-hbot-previo`,
   ocupantes: `${BASE}/StructureDefinition/ocupantes`,
+  /** Tipo de ítem del turno (servicio/combo/paquete/membresia), para calcular la seña. */
+  itemTipo: `${BASE}/StructureDefinition/item-tipo`,
+  /** Código de catálogo del ítem del turno. */
+  itemCodigo: `${BASE}/StructureDefinition/item-codigo`,
   // ActivityDefinition (catálogo)
   precioUsd: `${BASE}/StructureDefinition/precio-usd`,
   precioArs: `${BASE}/StructureDefinition/precio-ars`,
@@ -45,6 +49,10 @@ export const EXT = {
   montoSplitBw: `${BASE}/StructureDefinition/monto-split-bw`,
   montoSplitProfesional: `${BASE}/StructureDefinition/monto-split-profesional`,
   tcAplicado: `${BASE}/StructureDefinition/tc-aplicado`,
+  /** Marca de que el Invoice es una seña (depósito). */
+  esSena: `${BASE}/StructureDefinition/es-sena`,
+  /** Medio de pago elegido (efectivo / transferencia / tarjeta / mercadopago). */
+  medioPago: `${BASE}/StructureDefinition/medio-pago`,
   // Communication
   canal: `${BASE}/StructureDefinition/canal`,
   templateUsado: `${BASE}/StructureDefinition/template-usado`,

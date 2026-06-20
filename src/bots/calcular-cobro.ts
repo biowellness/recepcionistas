@@ -8,8 +8,8 @@
 import type { BotEvent, MedplumClient } from '@medplum/core';
 import type { Invoice, InvoiceLineItem } from '@medplum/fhirtypes';
 import { calcularCobro, type ItemCobro } from '../lib/pricing.js';
-import { resolverTC } from '../config/tipo-cambio.js';
-import { CONFIG_TC_ID, EXT } from '../fhir/identifiers.js';
+import { EXT } from '../fhir/identifiers.js';
+import { leerTcVigente } from './_shared.js';
 
 export interface EntradaCobro {
   items: ItemCobro[];
@@ -66,20 +66,6 @@ export async function handler(medplum: MedplumClient, event: BotEvent<EntradaCob
     return invoice;
   }
   return medplum.createResource(invoice);
-}
-
-/** Lee el TC vigente de un recurso Basic de configuración; si no hay, usa el default. */
-async function leerTcVigente(medplum: MedplumClient): Promise<number> {
-  try {
-    const basic = await medplum.searchOne('Basic', `identifier=${CONFIG_TC_ID}`);
-    const ext = basic?.extension?.find((e) => e.url === EXT.tcAplicado);
-    if (ext?.valueDecimal && ext.valueDecimal > 0) {
-      return ext.valueDecimal;
-    }
-  } catch {
-    // Sin servidor / sin recurso: caemos al default configurado.
-  }
-  return resolverTC();
 }
 
 function round2(n: number): number {
