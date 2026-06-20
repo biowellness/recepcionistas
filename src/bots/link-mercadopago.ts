@@ -45,7 +45,11 @@ export async function handler(medplum: MedplumClient, event: BotEvent<EntradaLin
 
   const resp = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-Idempotency-Key': `sena-${event.input.appointmentId}`,
+    },
     body: JSON.stringify({
       items: [
         {
@@ -55,13 +59,19 @@ export async function handler(medplum: MedplumClient, event: BotEvent<EntradaLin
           currency_id: 'ARS',
         },
       ],
+      external_reference: event.input.appointmentId,
       metadata: { appointmentId: event.input.appointmentId },
     }),
   });
 
   if (!resp.ok) {
-    return { ok: false, senaARS, mensaje: `MercadoPago respondió ${resp.status}.` };
+    const detalle = await resp.text().catch(() => '');
+    return { ok: false, senaARS, mensaje: `MercadoPago respondió ${resp.status}: ${detalle.slice(0, 400)}` };
   }
   const pref = (await resp.json()) as { init_point?: string; sandbox_init_point?: string };
-  return { ok: true, senaARS, url: pref.init_point ?? pref.sandbox_init_point };
+  const url = pref.init_point ?? pref.sandbox_init_point;
+  if (!url) {
+    return { ok: false, senaARS, mensaje: 'MercadoPago no devolvió un link de pago (init_point).' };
+  }
+  return { ok: true, senaARS, url };
 }
