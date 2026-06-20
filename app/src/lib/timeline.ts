@@ -6,12 +6,14 @@ import { HORARIO_SEMANAL } from '@bw/config/horario';
 import { EXT } from '@bw/fhir/identifiers';
 
 export interface TurnoTimeline {
+  appointmentId: string;
   recursoCodigo: string;
   /** Minutos desde medianoche (hora local). */
   inicioMin: number;
   finMin: number;
   servicio: string;
   paciente: string;
+  /** Estado del turno (Appointment.status): booked / arrived / checked-in / fulfilled / noshow. */
   estado: string;
 }
 
@@ -27,9 +29,10 @@ export interface TimelineData {
   cierreMin: number;
   salas: SalaFila[];
   turnos: TurnoTimeline[];
-  /** Hora actual en minutos (para la línea de "ahora"). */
   ahoraMin: number;
 }
+
+const ESTADOS_OCULTOS = new Set(['cancelled', 'entered-in-error']);
 
 function hhmmAMin(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
@@ -48,7 +51,7 @@ function rango(fecha: Date): { desde: string; hasta: string } {
   return { desde: ini.toISOString(), hasta: fin.toISOString() };
 }
 
-/** Carga el timeline del día: salas (filas), horario (columnas) y turnos ocupados. */
+/** Carga el timeline del día: salas (filas), horario (columnas) y turnos (con estado). */
 export async function cargarTimeline(fecha: Date = new Date()): Promise<TimelineData> {
   const salas: SalaFila[] = RECURSOS.map((r) => ({
     codigo: r.codigo,
@@ -65,19 +68,17 @@ export async function cargarTimeline(fecha: Date = new Date()): Promise<Timeline
 
   const { desde, hasta } = rango(fecha);
 
-  // Slots ocupados (tienen el código de recurso); Appointments (tienen servicio + paciente).
-  const [slots, appts] = await Promise.all([
-    safe(() => medplum.searchResources('Slot', { status: 'busy', start: `ge${desde}`, _count: 500 })),
+  const [appts, slots] = await Promise.all([
     safe(() => medplum.searchResources('Appointment', { date: `ge${desde}`, _count: 500 })),
+    safe(() => medplum.searchResources('Slot', { start: `ge${desde}`, _count: 500 })),
   ]);
 
-  // Appointment por id de Slot.
-  const apptPorSlot = new Map<string, Appointment>();
-  for (const a of appts) {
-    const ref = a.slot?.[0]?.reference;
-    const id = ref?.split('/')[1];
-    if (id) {
-      apptPorSlot.set(id, a);
+  // Fallback: mapa de Slot id -> código de recurso (para turnos sin la extensión).
+  const recursoPorSlot = new Map<string, string>();
+  for (const s of slots as Slot[]) {
+    const code = s.extension?.find((e) => e.url === EXT.recursoFisico)?.valueString;
+    if (s.id && code) {
+      recursoPorSlot.set(s.id, code);
     }
   }
 
@@ -103,21 +104,26 @@ export async function cargarTimeline(fecha: Date = new Date()): Promise<Timeline
   }
 
   const turnos: TurnoTimeline[] = [];
-  for (const sl of slots as Slot[]) {
-    const recursoCodigo = sl.extension?.find((e) => e.url === EXT.recursoFisico)?.valueString;
-    if (!recursoCodigo || !sl.start || !sl.end || sl.start > hasta) {
+  for (const a of appts as Appointment[]) {
+    if (!a.id || !a.start || !a.end || a.start > hasta || ESTADOS_OCULTOS.has(a.status ?? '')) {
       continue;
     }
-    const appt = sl.id ? apptPorSlot.get(sl.id) : undefined;
-    const pacienteRef = appt?.participant?.find((p) => p.actor?.reference?.startsWith('Patient/'))?.actor?.reference;
+    const recursoCodigo =
+      a.extension?.find((e) => e.url === EXT.recursoFisico)?.valueString ??
+      (a.slot?.[0]?.reference ? recursoPorSlot.get(a.slot[0].reference.split('/')[1] ?? '') : undefined);
+    if (!recursoCodigo) {
+      continue;
+    }
+    const pacienteRef = a.participant?.find((p) => p.actor?.reference?.startsWith('Patient/'))?.actor?.reference;
     const pacienteId = pacienteRef?.split('/')[1];
     turnos.push({
+      appointmentId: a.id,
       recursoCodigo,
-      inicioMin: minDelDia(new Date(sl.start)),
-      finMin: minDelDia(new Date(sl.end)),
-      servicio: appt?.description ?? 'Ocupado',
+      inicioMin: minDelDia(new Date(a.start)),
+      finMin: minDelDia(new Date(a.end)),
+      servicio: a.description ?? 'Turno',
       paciente: (pacienteId && nombrePaciente.get(pacienteId)) || '',
-      estado: appt?.status ?? 'busy',
+      estado: a.status ?? 'booked',
     });
   }
 
