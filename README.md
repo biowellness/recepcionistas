@@ -1,2 +1,2 @@
-# secretarias
-Repo BioWellness | San Isidro | Rol "Secretaria"
+# Recepcionistas
+Repo BioWellness | San Isidro | Rol "Recepcionistas"
