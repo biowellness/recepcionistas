@@ -26,7 +26,7 @@ import {
 import type { Patient, Invoice } from '@medplum/fhirtypes';
 import { getDisplayString } from '@medplum/core';
 import { medplum } from '../medplum';
-import { calcularCobro, reservarTurno, type ResultadoReserva } from '../lib/bots';
+import { calcularCobro, reservarTurno, mensajeError, type ResultadoReserva } from '../lib/bots';
 import { SERVICIOS } from '@bw/config/catalogo';
 import { recursosParaCategoria } from '@bw/config/recursos';
 import { generarSlots } from '@bw/lib/slots';
@@ -183,7 +183,7 @@ function PanelReserva({ paciente }: { paciente: Patient }): JSX.Element {
       });
       setResultado(r);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo reservar.');
+      setError(mensajeError(e));
     } finally {
       setReservando(false);
     }
@@ -316,7 +316,7 @@ function PanelCobro({ paciente }: { paciente: Patient }): JSX.Element {
       const inv = await calcularCobro([{ tipo: 'servicio', codigo: servicio }], `Patient/${paciente.id}`);
       setInvoice(inv);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo calcular el cobro.');
+      setError(mensajeError(e));
     } finally {
       setCalculando(false);
     }

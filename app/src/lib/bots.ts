@@ -15,6 +15,20 @@ export interface ItemCobroInput {
   cantidad?: number;
 }
 
+/** Extrae un mensaje legible de un error de bot (que suele venir como JSON con stack). */
+export function mensajeError(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e);
+  try {
+    const o = JSON.parse(raw) as { errorMessage?: string };
+    if (o && typeof o.errorMessage === 'string') {
+      return o.errorMessage;
+    }
+  } catch {
+    // no era JSON
+  }
+  return raw;
+}
+
 async function botIdPorNombre(nombre: string): Promise<string> {
   const bot = await medplum.searchOne('Bot', `name=${nombre}`);
   if (!bot?.id) {
