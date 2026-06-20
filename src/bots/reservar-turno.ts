@@ -10,11 +10,12 @@
  * después). La prescripción de IV/TB se pasa explícita hasta modelar ServiceRequest.
  */
 import type { BotEvent, MedplumClient } from '@medplum/core';
-import type { Appointment, AppointmentParticipant, Flag, Slot } from '@medplum/fhirtypes';
+import type { Appointment, AppointmentParticipant, Slot } from '@medplum/fhirtypes';
 import type { Servicio } from '../domain/types.js';
 import { getServicio } from '../config/catalogo.js';
 import type { PerfilReserva } from '../config/reglas.js';
 import { EXT, SYSTEM } from '../fhir/identifiers.js';
+import { cargarReservasDelDia, extraerCodigos, scheduleIdDeRecurso } from './_shared.js';
 import {
   combinar,
   recomendarHbotPrevio,
@@ -129,11 +130,8 @@ export async function handler(
   }
 
   // Crear Slot ocupado + Appointment.
-  const schedule = await medplum.searchOne(
-    'Schedule',
-    `identifier=${SYSTEM.recursoCodigo}|SCH_${e.recursoCodigo}`,
-  );
-  if (!schedule?.id) {
+  const scheduleId = await scheduleIdDeRecurso(medplum, e.recursoCodigo);
+  if (!scheduleId) {
     return {
       ok: false,
       bloqueos: [{ regla: 'R-07', nivel: 'bloqueo', mensaje: `El recurso ${e.recursoCodigo} no tiene agenda (Schedule).` }],
@@ -145,7 +143,7 @@ export async function handler(
   const slot: Slot = await medplum.createResource<Slot>({
     resourceType: 'Slot',
     status: 'busy',
-    schedule: { reference: `Schedule/${schedule.id}` },
+    schedule: { reference: `Schedule/${scheduleId}` },
     start: inicio.toISOString(),
     end: fin.toISOString(),
     extension: [{ url: EXT.recursoFisico, valueString: e.recursoCodigo }],
@@ -180,31 +178,4 @@ export async function handler(
     appointmentId: appointment.id,
     slotId: slot.id,
   };
-}
-
-function extraerCodigos(flag: Flag): string[] {
-  return (flag.code?.coding ?? []).map((c) => c.code).filter((c): c is string => Boolean(c));
-}
-
-async function cargarReservasDelDia(medplum: MedplumClient, dia: Date): Promise<ReservaRecurso[]> {
-  const inicioDia = new Date(dia);
-  inicioDia.setHours(0, 0, 0, 0);
-  const finDia = new Date(dia);
-  finDia.setHours(23, 59, 59, 999);
-
-  const ocupados = await medplum.searchResources('Slot', {
-    status: 'busy',
-    start: `ge${inicioDia.toISOString()}`,
-    _count: 500,
-  });
-
-  const reservas: ReservaRecurso[] = [];
-  for (const s of ocupados) {
-    const codigo = s.extension?.find((x) => x.url === EXT.recursoFisico)?.valueString;
-    if (!codigo || !s.start || !s.end || s.start > finDia.toISOString()) {
-      continue;
-    }
-    reservas.push({ recursoCodigo: codigo, inicio: new Date(s.start), fin: new Date(s.end) });
-  }
-  return reservas;
 }
