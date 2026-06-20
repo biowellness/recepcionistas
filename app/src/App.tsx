@@ -4,6 +4,7 @@ import { SignInForm, useMedplumProfile } from '@medplum/react';
 import { Shell, type Vista } from './components/Shell';
 import { AgendaDelDia } from './pages/AgendaDelDia';
 import { Atender } from './pages/Atender';
+import { Reportes } from './pages/Reportes';
 
 export function App(): JSX.Element {
   const profile = useMedplumProfile();
@@ -15,7 +16,9 @@ export function App(): JSX.Element {
 
   return (
     <Shell vista={vista} onVista={setVista}>
-      {vista === 'agenda' ? <AgendaDelDia /> : <Atender />}
+      {vista === 'agenda' && <AgendaDelDia />}
+      {vista === 'atender' && <Atender />}
+      {vista === 'reportes' && <Reportes />}
     </Shell>
   );
 }

@@ -25,6 +25,7 @@ base sobre la que se apoya la pantalla de la recepción. Backend **Medplum (FHIR
 | Check-in / check-out + estados en el timeline | ✅ bot `bw-estado-turno` |
 | Reserva con seña 50% (confirma turno) + WhatsApp | ✅ bots `bw-pagar-sena` / `bw-link-mercadopago` |
 | Webhook de MercadoPago (confirma turno al pagar) | ✅ bot `bw-webhook-mercadopago` |
+| Reportes / tablero (turnos, ingresos, ocupación) | ✅ pantalla Reportes |
 | Consultas médicas (3 médicos, 1 consultorio, precio ARS) | ✅ catálogo + `Practitioner` |
 | Harness de tests (casos AC del Anexo A) | ✅ 70 tests |
 | CI (GitHub Actions) | ✅ |
@@ -101,6 +102,8 @@ Pantallas del esqueleto:
 - **Atender paciente** — búsqueda por nombre/DNI, banner de seguridad verde/rojo
   (sin ver la historia clínica), **reserva de turnos** (valida + crea vía bot
   `reservar-turno`) y cobro **calculado por el bot** `calcular-cobro`.
+- **Reportes** — tablero del día/mes: turnos por estado, ingresos (cobros y
+  señas), ocupación por sala y WhatsApp enviados. Lee de Medplum.
 
 > El cobro requiere los Bots desplegados (`npm run deploy:bots`). Si no están, la
 > pantalla lo avisa con claridad: el front nunca calcula por su cuenta.
