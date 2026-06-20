@@ -16,8 +16,8 @@
     "test:watch": "vitest",
     "seed": "tsx src/seed/index.ts",
     "limpiar": "tsx src/seed/limpiar.ts",
-    "build:bots": "tsc -p tsconfig.bots.json",
-    "deploy:bots": "medplum bot deploy",
+    "bots:bundle": "tsx src/seed/deploy-bots.ts --dry-run",
+    "deploy:bots": "tsx src/seed/deploy-bots.ts",
     "verify": "npm run typecheck && npm run test",
     "dev": "npm run dev --workspace @biowellness/recepcion-app",
     "build:app": "npm run build --workspace @biowellness/recepcion-app",
@@ -31,6 +31,7 @@
     "@medplum/cli": "^3.2.0",
     "@types/node": "^20.14.0",
     "dotenv": "^16.4.5",
+    "esbuild": "^0.28.1",
     "tsx": "^4.16.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"

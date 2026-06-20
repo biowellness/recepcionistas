@@ -27,15 +27,21 @@ export interface EntradaWhatsApp {
   persistir?: boolean;
 }
 
+/** Lee un secreto del proyecto (event.secrets) con fallback a process.env (local). */
+function secreto(event: BotEvent<EntradaWhatsApp>, nombre: string): string | undefined {
+  return event.secrets[nombre]?.valueString ?? process.env[nombre];
+}
+
 export async function handler(
   medplum: MedplumClient,
   event: BotEvent<EntradaWhatsApp>,
 ): Promise<Communication> {
   const { to, template, body, pacienteRef } = event.input;
 
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_WHATSAPP_FROM;
+  // En Medplum los secretos llegan por event.secrets, NO por process.env.
+  const sid = secreto(event, 'TWILIO_ACCOUNT_SID');
+  const token = secreto(event, 'TWILIO_AUTH_TOKEN');
+  const from = secreto(event, 'TWILIO_WHATSAPP_FROM');
 
   let status: CommunicationStatus = 'preparation';
 
