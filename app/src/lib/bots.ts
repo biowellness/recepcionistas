@@ -30,3 +30,37 @@ export async function calcularCobro(items: ItemCobroInput[], pacienteRef?: strin
   const id = await botIdPorNombre('bw-calcular-cobro');
   return (await medplum.executeBot(id, { items, pacienteRef, persistir: false })) as Invoice;
 }
+
+export interface ReservaInput {
+  pacienteRef: string;
+  servicioCodigo: string;
+  recursoCodigo: string;
+  /** Inicio del turno en ISO (con offset de Argentina). */
+  inicio: string;
+  ocupantes?: number;
+  prescripcionActiva?: boolean;
+  autorizacionMedica?: boolean;
+  /** Si es false, solo valida (no crea). */
+  confirmar?: boolean;
+}
+
+export interface IssueValidacion {
+  regla: string;
+  nivel: string;
+  mensaje: string;
+}
+
+export interface ResultadoReserva {
+  ok: boolean;
+  bloqueos: IssueValidacion[];
+  advertencias: IssueValidacion[];
+  creado: boolean;
+  appointmentId?: string;
+  slotId?: string;
+}
+
+/** Llama al bot de reserva: valida y (si confirma) crea el turno + Slot ocupado. */
+export async function reservarTurno(input: ReservaInput): Promise<ResultadoReserva> {
+  const id = await botIdPorNombre('bw-reservar-turno');
+  return (await medplum.executeBot(id, input)) as ResultadoReserva;
+}

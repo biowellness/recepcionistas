@@ -1,24 +1,36 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Badge,
   Button,
   Card,
   Group,
+  List,
   Loader,
   NumberFormatter,
   Select,
   Stack,
+  Switch,
   Text,
   TextInput,
   Title,
 } from '@mantine/core';
-import { IconSearch, IconShieldCheck, IconShieldX, IconCash, IconInfoCircle } from '@tabler/icons-react';
+import {
+  IconSearch,
+  IconShieldCheck,
+  IconShieldX,
+  IconCash,
+  IconCalendarPlus,
+  IconInfoCircle,
+} from '@tabler/icons-react';
 import type { Patient, Invoice } from '@medplum/fhirtypes';
 import { getDisplayString } from '@medplum/core';
 import { medplum } from '../medplum';
-import { calcularCobro } from '../lib/bots';
+import { calcularCobro, reservarTurno, type ResultadoReserva } from '../lib/bots';
 import { SERVICIOS } from '@bw/config/catalogo';
+import { recursosParaCategoria } from '@bw/config/recursos';
+import { generarSlots } from '@bw/lib/slots';
+import { HORARIO_SEMANAL } from '@bw/config/horario';
 
 export function Atender(): JSX.Element {
   const [query, setQuery] = useState('');
@@ -93,6 +105,7 @@ function FichaPaciente({ paciente, onVolver }: { paciente: Patient; onVolver: ()
         </Button>
       </Group>
       <BannerSeguridad pacienteId={paciente.id!} />
+      <PanelReserva paciente={paciente} />
       <PanelCobro paciente={paciente} />
     </Stack>
   );
@@ -127,6 +140,159 @@ function BannerSeguridad({ pacienteId }: { pacienteId: string }): JSX.Element {
     <Alert color="teal" icon={<IconShieldCheck size={20} />} title="Sin contraindicaciones" variant="filled">
       Paciente apto para atención.
     </Alert>
+  );
+}
+
+/** Reserva de turno: el front arma la propuesta y el bot valida + crea. */
+function PanelReserva({ paciente }: { paciente: Patient }): JSX.Element {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const [servicioCodigo, setServicioCodigo] = useState<string | null>(null);
+  const [recursoCodigo, setRecursoCodigo] = useState<string | null>(null);
+  const [fecha, setFecha] = useState(hoy);
+  const [hora, setHora] = useState<string | null>(null);
+  const [prescripcion, setPrescripcion] = useState(false);
+  const [resultado, setResultado] = useState<ResultadoReserva | null>(null);
+  const [reservando, setReservando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const servicio = servicioCodigo ? SERVICIOS.find((s) => s.codigo === servicioCodigo) : undefined;
+  const salas = servicio ? recursosParaCategoria(servicio.categoria) : [];
+
+  const horas = useMemo(() => {
+    const desde = new Date(`${fecha}T00:00:00-03:00`);
+    const dummy = [{ codigo: '_', nombre: '_', tipo: 'SALA' as const, capacidad: 1 }];
+    const slots = generarSlots(dummy, HORARIO_SEMANAL, { desde, dias: 1 });
+    return slots.map((s) => s.inicio.slice(11, 16));
+  }, [fecha]);
+
+  async function reservar(): Promise<void> {
+    if (!servicioCodigo || !recursoCodigo || !hora) {
+      return;
+    }
+    setReservando(true);
+    setError(null);
+    setResultado(null);
+    try {
+      const r = await reservarTurno({
+        pacienteRef: `Patient/${paciente.id}`,
+        servicioCodigo,
+        recursoCodigo,
+        inicio: `${fecha}T${hora}:00-03:00`,
+        prescripcionActiva: prescripcion,
+        confirmar: true,
+      });
+      setResultado(r);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo reservar.');
+    } finally {
+      setReservando(false);
+    }
+  }
+
+  return (
+    <Card withBorder radius="md" padding="lg">
+      <Group gap="xs" mb="sm">
+        <IconCalendarPlus size={18} />
+        <Text fw={600}>Reservar turno</Text>
+      </Group>
+
+      <Stack gap="sm">
+        <Group grow align="flex-end">
+          <Select
+            label="Servicio"
+            placeholder="Elegí un servicio"
+            data={SERVICIOS.map((s) => ({ value: s.codigo, label: s.nombre }))}
+            value={servicioCodigo}
+            onChange={(v) => {
+              setServicioCodigo(v);
+              setRecursoCodigo(null);
+              setResultado(null);
+            }}
+            searchable
+          />
+          <Select
+            label="Sala / equipo"
+            placeholder={servicio ? 'Elegí la sala' : 'Primero el servicio'}
+            data={salas.map((r) => ({ value: r.codigo, label: r.nombre }))}
+            value={recursoCodigo}
+            onChange={setRecursoCodigo}
+            disabled={!servicio}
+            searchable
+          />
+        </Group>
+
+        <Group grow align="flex-end">
+          <TextInput
+            type="date"
+            label="Fecha"
+            value={fecha}
+            min={hoy}
+            onChange={(e) => {
+              setFecha(e.currentTarget.value);
+              setHora(null);
+            }}
+          />
+          <Select
+            label="Hora"
+            placeholder={horas.length ? 'Elegí la hora' : 'Cerrado ese día'}
+            data={horas}
+            value={hora}
+            onChange={setHora}
+            disabled={!horas.length}
+            searchable
+          />
+        </Group>
+
+        {servicio?.requierePrescripcion && (
+          <Switch
+            label="Prescripción médica activa (requerida para IV / Terapias Biológicas)"
+            checked={prescripcion}
+            onChange={(e) => setPrescripcion(e.currentTarget.checked)}
+          />
+        )}
+
+        <Group>
+          <Button
+            onClick={() => void reservar()}
+            loading={reservando}
+            disabled={!servicioCodigo || !recursoCodigo || !hora}
+          >
+            Reservar turno
+          </Button>
+        </Group>
+
+        {error && (
+          <Alert color="orange" icon={<IconInfoCircle size={16} />}>
+            {error}
+          </Alert>
+        )}
+
+        {resultado?.creado && (
+          <Alert color="teal" title="Turno reservado ✓">
+            La sala queda ocupada en la agenda.
+            {resultado.advertencias.length > 0 && (
+              <List size="sm" mt="xs">
+                {resultado.advertencias.map((a, i) => (
+                  <List.Item key={i}>{a.mensaje}</List.Item>
+                ))}
+              </List>
+            )}
+          </Alert>
+        )}
+
+        {resultado && !resultado.creado && (
+          <Alert color="red" title="No se pudo reservar" icon={<IconShieldX size={16} />}>
+            <List size="sm">
+              {resultado.bloqueos.map((b, i) => (
+                <List.Item key={i}>
+                  [{b.regla}] {b.mensaje}
+                </List.Item>
+              ))}
+            </List>
+          </Alert>
+        )}
+      </Stack>
+    </Card>
   );
 }
 
