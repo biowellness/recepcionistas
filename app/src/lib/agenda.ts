@@ -2,6 +2,7 @@ import type { Schedule, Slot } from '@medplum/fhirtypes';
 import { medplum } from '../medplum';
 import { estadoRecurso, type ColorSala, type TurnoVentana } from '@bw/lib/slots';
 import { EXT } from '@bw/fhir/identifiers';
+import { RECURSOS_POR_CODIGO } from '@bw/config/recursos';
 
 export interface SalaEstado {
   codigo: string;
@@ -29,13 +30,18 @@ function leerExt(sch: Schedule, url: string): { valueString?: string; valueBoole
  * de sus Slots ocupados. Si no hay agenda generada, la sala figura libre (verde).
  */
 export async function cargarSalas(): Promise<SalaEstado[]> {
-  const schedules = await medplum.searchResources('Schedule', { _count: 50 });
+  const schedules = await medplum.searchResources('Schedule', { _count: 100 });
   const { desde, hasta } = hoyRango();
   const ahora = new Date();
 
   const salas: SalaEstado[] = [];
   for (const sch of schedules) {
-    const codigo = leerExt(sch, EXT.recursoFisico)?.valueString ?? sch.id ?? '?';
+    // Solo salas canónicas (las del catálogo). Ignora Schedules de otro origen,
+    // la sede y posibles duplicados que no tengan nuestro código de recurso.
+    const codigo = leerExt(sch, EXT.recursoFisico)?.valueString;
+    if (!codigo || !RECURSOS_POR_CODIGO.has(codigo)) {
+      continue;
+    }
     const nombre = sch.actor?.[0]?.display ?? codigo;
     const comparteEquipo = leerExt(sch, EXT.comparteTumbona)?.valueBoolean ?? false;
 
