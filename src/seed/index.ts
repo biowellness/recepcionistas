@@ -38,6 +38,7 @@ async function main(): Promise<void> {
     ['CodeSystem (contraindicaciones)', [seed.contraindicaciones]],
     ['Location (recursos)', seed.locations],
     ['Schedule (agendas)', seed.schedules],
+    ['Practitioner (médicos)', seed.practitioners],
   ];
 
   const total = grupos.reduce((acc, [, arr]) => acc + arr.length, 0);

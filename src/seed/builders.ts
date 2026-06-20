@@ -12,11 +12,13 @@ import type {
   Location,
   PlanDefinition,
   PlanDefinitionAction,
+  Practitioner,
   Schedule,
   Slot,
   StructureDefinition,
 } from '@medplum/fhirtypes';
 import type { Servicio } from '../domain/types.js';
+import { MEDICOS } from '../config/medicos.js';
 import { SERVICIOS } from '../config/catalogo.js';
 import { COMBOS } from '../config/combos.js';
 import { MEMBRESIAS } from '../config/membresias.js';
@@ -42,6 +44,9 @@ export function buildActivityDefinition(s: Servicio): ActivityDefinition {
     { url: EXT.splitBw, valueCode: s.split.tipo },
     { url: EXT.requierePrescripcion, valueBoolean: s.requierePrescripcion },
   ];
+  if (s.precioARS != null) {
+    ext.push({ url: EXT.precioArs, valueDecimal: s.precioARS });
+  }
   const ad: ActivityDefinition = {
     resourceType: 'ActivityDefinition',
     url: canonical('ActivityDefinition', s.codigo),
@@ -206,6 +211,16 @@ export function buildSlot(descriptor: SlotDescriptor, scheduleRef: string): Slot
   };
 }
 
+export function buildPractitioner(codigo: string): Practitioner {
+  const m = MEDICOS.find((x) => x.codigo === codigo)!;
+  return {
+    resourceType: 'Practitioner',
+    identifier: [{ system: SYSTEM.medico, value: m.codigo }],
+    name: [{ text: m.nombre }],
+    extension: [{ url: EXT.tipoContrato, valueCode: m.esDirector ? 'director-medico' : 'prescriptor' }],
+  };
+}
+
 export interface RecursosSeed {
   structureDefinitions: StructureDefinition[];
   accessPolicies: typeof ACCESS_POLICIES;
@@ -217,6 +232,7 @@ export interface RecursosSeed {
   contraindicaciones: CodeSystem;
   locations: Location[];
   schedules: Schedule[];
+  practitioners: Practitioner[];
 }
 
 /** Construye TODOS los recursos del seed (sin IO). */
@@ -232,5 +248,6 @@ export function buildSeed(): RecursosSeed {
     contraindicaciones: buildContraindicacionesCodeSystem(),
     locations: RECURSOS.map((r) => buildLocation(r.codigo)),
     schedules: RECURSOS.map((r) => buildSchedule(r.codigo)),
+    practitioners: MEDICOS.map((m) => buildPractitioner(m.codigo)),
   };
 }

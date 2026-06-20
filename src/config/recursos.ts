@@ -58,6 +58,7 @@ const CATEGORIA_A_TIPO: Record<CategoriaServicio, TipoRecurso> = {
   IV_THERAPY: 'BOX_CLINICO',
   TERAPIA_BIOLOGICA: 'BOX_CLINICO',
   MASAJE_OSTEOPATIA: 'SALA',
+  CONSULTA: 'CONSULTORIO',
 };
 
 /** Recursos físicos donde se puede agendar un servicio de la categoría dada. */

@@ -28,6 +28,7 @@ export const EXT = {
   ocupantes: `${BASE}/StructureDefinition/ocupantes`,
   // ActivityDefinition (catálogo)
   precioUsd: `${BASE}/StructureDefinition/precio-usd`,
+  precioArs: `${BASE}/StructureDefinition/precio-ars`,
   reglaPricingRecurso: `${BASE}/StructureDefinition/regla-pricing-recurso`,
   splitBw: `${BASE}/StructureDefinition/split-bw`,
   requierePrescripcion: `${BASE}/StructureDefinition/requiere-prescripcion`,
@@ -57,6 +58,7 @@ export const SYSTEM = {
   paqueteCodigo: `${BASE}/CodeSystem/paquete`,
   recursoCodigo: `${BASE}/CodeSystem/recurso-fisico`,
   contraindicacion: `${BASE}/CodeSystem/contraindicacion`,
+  medico: `${BASE}/CodeSystem/medico`,
   config: `${BASE}/Identifier/config`,
 } as const;
 

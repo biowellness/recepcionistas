@@ -19,7 +19,8 @@ export type CategoriaServicio =
   | 'CRIO'
   | 'IV_THERAPY'
   | 'TERAPIA_BIOLOGICA'
-  | 'MASAJE_OSTEOPATIA';
+  | 'MASAJE_OSTEOPATIA'
+  | 'CONSULTA';
 
 /**
  * Distribución de ingresos (split) por servicio (R-08).
@@ -50,8 +51,12 @@ export interface Servicio {
   categoria: CategoriaServicio;
   /** Duración nominal de la sesión, en minutos. */
   duracionMin: number;
-  /** Precio de lista en USD (por sesión, salvo regla de pricing). */
+  /** Precio de lista en USD (por sesión, salvo regla de pricing). 0 si el precio es en ARS. */
   precioUSD: number;
+  /** Precio fijo en ARS (consultas médicas). Si está, el servicio se cobra en pesos sin convertir. */
+  precioARS?: number;
+  /** Para consultas: código del médico que atiende (ver src/config/medicos.ts). */
+  practitionerCodigo?: string;
   /** Requiere prescripción médica activa (IV / Terapias Biológicas). */
   requierePrescripcion: boolean;
   /** Regla de cálculo de precio. */

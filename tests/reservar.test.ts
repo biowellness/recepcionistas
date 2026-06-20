@@ -92,6 +92,19 @@ describe('validarReserva', () => {
     expect(r.advertencias.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('Dos consultas en el consultorio a la misma hora => bloqueo (R-07, un solo consultorio)', () => {
+    const r = validarReserva(
+      ctx({
+        servicioCodigo: 'CONSULTA_MED_DALESSANDRO',
+        recursoCodigo: 'R_CONSULTORIO',
+        inicio: new Date('2026-06-22T09:00:00-03:00'),
+        reservasExistentes: [reserva('R_CONSULTORIO', '09:00', '10:00')],
+      }),
+    );
+    expect(r.ok).toBe(false);
+    expect(r.bloqueos.some((b) => b.regla === 'R-07')).toBe(true);
+  });
+
   it('Contraindicación absoluta activa => bloqueo (R-02)', () => {
     const r = validarReserva(
       ctx({
