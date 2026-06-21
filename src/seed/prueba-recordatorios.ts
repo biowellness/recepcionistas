@@ -22,8 +22,8 @@ import type { Appointment, Coverage, Patient } from '@medplum/fhirtypes';
 import { EXT } from '../fhir/identifiers.js';
 import { cicloMes } from '../lib/planes.js';
 
-/** Id del paciente de prueba (fijo, pedido para el execute). */
-const PATIENT_ID = '9647fb20-c13a-49c0-b32c-50549bb2c1d9';
+/** Id del paciente de prueba (fijo por defecto; configurable para apuntar a uno real). */
+const PATIENT_ID = process.env.PRUEBA_PATIENT_ID ?? '9647fb20-c13a-49c0-b32c-50549bb2c1d9';
 /** Sistema de identifier para los recursos de prueba (upsert idempotente). */
 const PRUEBA = 'https://biowellness.ar/fhir/Identifier/prueba';
 /** PRIME Standard Individual: 8 sesiones/mes, base BIO RECOVERY. */
@@ -39,16 +39,6 @@ function construir(ahora: Date) {
   const inicio = new Date(ahora.getTime() + 20 * 60 * 60_000); // +20h → ventana de 24h
   const fin = new Date(inicio.getTime() + 90 * 60_000);
   const ciclo = cicloMes(ahora);
-
-  const patient: Patient = {
-    resourceType: 'Patient',
-    id: PATIENT_ID,
-    name: [{ given: ['Paciente'], family: 'Prueba Recordatorios' }],
-    telecom: [
-      { system: 'phone', value: TELEFONO },
-      { system: 'email', value: EMAIL },
-    ],
-  };
 
   const coverage: Coverage = {
     resourceType: 'Coverage',
@@ -79,28 +69,63 @@ function construir(ahora: Date) {
     ],
   };
 
-  return { patient, coverage, appointment, inicio, ciclo };
+  return { coverage, appointment, inicio, ciclo };
 }
 
-async function upsertPorIdentifier<T extends { resourceType: string; id?: string; identifier?: { system?: string; value?: string }[] }>(
-  medplum: MedplumClient,
-  recurso: T,
-): Promise<T> {
+/** Upsert por identifier: actualiza si ya existe (PUT con su id) o crea si no (POST). */
+async function upsertPorIdentifier<
+  T extends { resourceType: string; id?: string; identifier?: { system?: string; value?: string }[] },
+>(medplum: MedplumClient, recurso: T): Promise<T> {
   const id = recurso.identifier?.[0];
   const existente = id
     ? await medplum.searchOne(recurso.resourceType as 'Coverage', `identifier=${id.system}|${id.value}`)
     : undefined;
-  const conId = existente?.id ? { ...recurso, id: existente.id } : recurso;
-  return (await medplum.updateResource(conId as never)) as T;
+  if (existente?.id) {
+    return (await medplum.updateResource({ ...recurso, id: existente.id } as never)) as T;
+  }
+  return (await medplum.createResource(recurso as never)) as T;
+}
+
+/**
+ * Devuelve el paciente de prueba SIN pisar datos reales: si ya existe, lo respeta
+ * (solo le agrega teléfono/email si le faltan, para poder notificar); si no existe,
+ * crea uno de prueba con el id fijo.
+ */
+async function obtenerPaciente(medplum: MedplumClient): Promise<Patient> {
+  const existente = await medplum.readResource('Patient', PATIENT_ID).catch(() => undefined);
+  if (existente) {
+    const tieneTel = existente.telecom?.some((t) => t.system === 'phone' || t.system === 'sms');
+    const tieneMail = existente.telecom?.some((t) => t.system === 'email');
+    if (tieneTel && tieneMail) {
+      return existente;
+    }
+    const telecom = [...(existente.telecom ?? [])];
+    if (!tieneTel) {
+      telecom.push({ system: 'phone', value: TELEFONO });
+    }
+    if (!tieneMail) {
+      telecom.push({ system: 'email', value: EMAIL });
+    }
+    return medplum.updateResource({ ...existente, telecom });
+  }
+  return medplum.updateResource({
+    resourceType: 'Patient',
+    id: PATIENT_ID,
+    name: [{ given: ['Paciente'], family: 'Prueba Recordatorios' }],
+    telecom: [
+      { system: 'phone', value: TELEFONO },
+      { system: 'email', value: EMAIL },
+    ],
+  });
 }
 
 async function main(): Promise<void> {
   const dryRun = process.argv.includes('--dry-run');
   const ahora = new Date();
-  const { patient, coverage, appointment, inicio, ciclo } = construir(ahora);
+  const { coverage, appointment, inicio, ciclo } = construir(ahora);
 
   console.log('=== Seed de prueba · bw-recordatorios ===');
-  console.log(`  • Patient ${PATIENT_ID} (tel ${TELEFONO} / ${EMAIL})`);
+  console.log(`  • Patient ${PATIENT_ID} (tel/email de respaldo: ${TELEFONO} / ${EMAIL})`);
   console.log(`  • Membresía ${PLAN}: ${SESIONES_MES - SESIONES_USADAS} de ${SESIONES_MES} libres · ciclo ${ciclo}`);
   console.log(`  • Turno BIO RECOVERY 'booked' a las ${inicio.toLocaleString('es-AR')} (~20h → ventana 24h)`);
 
@@ -113,8 +138,12 @@ async function main(): Promise<void> {
   await medplum.startClientLogin(requireEnv('MEDPLUM_CLIENT_ID'), requireEnv('MEDPLUM_CLIENT_SECRET'));
   console.log('\nConectado a Medplum.');
 
-  const p = await medplum.updateResource(patient); // upsert por id fijo
-  console.log(`  ✓ Patient ${p.id}`);
+  const p = await obtenerPaciente(medplum);
+  const destinatario = [
+    p.telecom?.find((t) => t.system === 'phone' || t.system === 'sms')?.value,
+    p.telecom?.find((t) => t.system === 'email')?.value,
+  ].filter(Boolean);
+  console.log(`  ✓ Patient ${p.id} → ${destinatario.join(' / ') || '(sin teléfono/email!)'}`);
   const cov = await upsertPorIdentifier(medplum, coverage);
   console.log(`  ✓ Coverage ${cov.id}`);
   // Vincular el turno a la membresía (consumo de cobertura), para realismo.
