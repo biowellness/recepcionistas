@@ -32,12 +32,23 @@ una parte del avance; el resto se resuelve en paralelo.
 | Precio consulta Dr. Conrado (Director) | **PROVISORIO: ARS 150.000** en `src/config/medicos.ts` (`precioProvisorio`). Dalessandro y Dos Santos = ARS 120.000 (confirmados). | ⚠️ Confirmar monto |
 | Split / honorario de consultas | Hoy la consulta se cobra entera (split `BW_100`). Falta definir cómo se reparte el honorario del médico. | A definir |
 
+## Gestión de sesiones — CERRADO ✅
+
+El bloque está implementado, testeado y deployado: dashboard "Planes y sesiones"
+(saldo en riesgo), pre-agenda de membresías (serie 2x/3x) y recordatorios de turno
+(24h/1h) + saldo en riesgo por WhatsApp y email (`bw-recordatorios`, cron horario).
+Ver [`docs/app-recepcion.md`](app-recepcion.md) y [`docs/bots.md`](bots.md).
+
+> **Para que los avisos se envíen** (hoy quedan registrados como `Communication` en
+> estado `preparation` hasta que estén las cuentas) falta lo de abajo + configurar
+> el `cronTimer` del Bot `bw-recordatorios` (`0 * * * *`).
+
 ## Integraciones / cuentas (en paralelo)
 
 | Cuenta | Para qué | Estado |
 |---|---|---|
-| WhatsApp Business (Twilio) | Confirmaciones y recordatorios (bot `enviar-whatsapp`). | A gestionar |
-| AWS SES | Email transaccional (vía `medplum.sendEmail()`, configurado en el servidor Medplum). | A gestionar |
+| WhatsApp Business (Twilio) | Confirmaciones y recordatorios. **Código listo y deployado**; falta cargar los Project Secrets (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`) y aprobar la plantilla de mensaje. | A gestionar (cuenta) |
+| AWS SES | Email transaccional (vía `medplum.sendEmail()`). **Código listo**; falta remitente verificado en SES. | A gestionar (cuenta) |
 | MercadoPago | Cobro de membresías/sesiones (tokeniza tarjetas; no guardamos datos de tarjeta). | A gestionar |
 
 ## Infra

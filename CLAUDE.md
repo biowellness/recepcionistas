@@ -67,5 +67,13 @@ tarjeta.
 
 ## Pendientes
 
-Ver [`docs/decisiones-pendientes.md`](docs/decisiones-pendientes.md). Lo bloqueante
-hoy: horario de atención y lista definitiva de salas (para generar `Slot`).
+Ver [`docs/decisiones-pendientes.md`](docs/decisiones-pendientes.md). Horario y
+salas ya están definidos (agenda operativa) y el **bloque de gestión de sesiones
+está cerrado**: dashboard de saldo, pre-agenda de membresías y recordatorios
+(turnos + saldo en riesgo) implementados, testeados y deployados
+(ver [`docs/app-recepcion.md`](docs/app-recepcion.md) y [`docs/bots.md`](docs/bots.md)).
+
+Lo que queda hoy **no frena el desarrollo**: cargar los Project Secrets de
+Twilio/SES en Medplum (para que confirmaciones y recordatorios **envíen** de
+verdad; sin ellos las `Communication` quedan en `preparation`) y validar los
+pendientes clínicos/catálogo (contraindicaciones, precio del Dr. Conrado).
