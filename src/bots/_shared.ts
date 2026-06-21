@@ -37,7 +37,16 @@ export async function leerTcVigente(medplum: MedplumClient): Promise<number> {
 export async function enviarWhatsApp(
   medplum: MedplumClient,
   secrets: Secrets,
-  params: { template: string; body: string; pacienteRef?: string; to?: string },
+  params: {
+    template: string;
+    body: string;
+    pacienteRef?: string;
+    to?: string;
+    /** Identifier de negocio para deduplicar (p. ej. recordatorios del cron). */
+    identifier?: { system: string; value: string };
+    /** Recurso al que refiere el mensaje (p. ej. `Appointment/123`). */
+    about?: string;
+  },
 ): Promise<Communication> {
   let to = params.to;
   if (!to && params.pacienteRef) {
@@ -71,6 +80,8 @@ export async function enviarWhatsApp(
     resourceType: 'Communication',
     status,
     sent: new Date().toISOString(),
+    ...(params.identifier ? { identifier: [params.identifier] } : {}),
+    ...(params.about ? { about: [{ reference: params.about }] } : {}),
     ...(params.pacienteRef
       ? { subject: { reference: params.pacienteRef }, recipient: [{ reference: params.pacienteRef }] }
       : {}),
@@ -80,6 +91,57 @@ export async function enviarWhatsApp(
       { url: EXT.templateUsado, valueString: params.template },
     ],
   });
+}
+
+/**
+ * Envía un email con `medplum.sendEmail()` (proveedor SES configurado en el
+ * servidor) y registra la Communication (canal 'email'). Resuelve el email del
+ * paciente si no se pasa `to`. Si no hay destinatario o SES falla, NO interrumpe:
+ * igual deja la Communication ('preparation' / 'entered-in-error').
+ */
+export async function enviarEmail(
+  medplum: MedplumClient,
+  params: { asunto: string; cuerpo: string; template: string; pacienteRef?: string; to?: string; about?: string },
+): Promise<Communication> {
+  let to = params.to;
+  if (!to && params.pacienteRef) {
+    const id = params.pacienteRef.split('/')[1];
+    if (id) {
+      const p = await medplum.readResource('Patient', id).catch(() => undefined);
+      to = p?.telecom?.find((t) => t.system === 'email')?.value;
+    }
+  }
+
+  let status: Communication['status'] = 'preparation';
+  if (to) {
+    try {
+      await medplum.sendEmail({ to, subject: params.asunto, text: params.cuerpo });
+      status = 'completed';
+    } catch {
+      status = 'entered-in-error';
+    }
+  }
+
+  return medplum.createResource<Communication>({
+    resourceType: 'Communication',
+    status,
+    sent: new Date().toISOString(),
+    ...(params.about ? { about: [{ reference: params.about }] } : {}),
+    ...(params.pacienteRef
+      ? { subject: { reference: params.pacienteRef }, recipient: [{ reference: params.pacienteRef }] }
+      : {}),
+    payload: [{ contentString: params.cuerpo }],
+    extension: [
+      { url: EXT.canal, valueCode: 'email' },
+      { url: EXT.templateUsado, valueString: params.template },
+    ],
+  });
+}
+
+/** ¿Ya se registró una Communication con este identifier de recordatorio? (idempotencia del cron). */
+export async function yaNotificado(medplum: MedplumClient, valor: string): Promise<boolean> {
+  const existente = await medplum.searchOne('Communication', `identifier=${SYSTEM.recordatorio}|${valor}`);
+  return Boolean(existente);
 }
 
 /** Códigos de contraindicación activos de un Flag. */

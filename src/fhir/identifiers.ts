@@ -79,6 +79,8 @@ export const SYSTEM = {
   medico: `${BASE}/CodeSystem/medico`,
   /** Identifier de Invoice (para deduplicar señas: manual o por pago MP). */
   invoice: `${BASE}/Identifier/invoice`,
+  /** Identifier de Communication de recordatorio (para no reenviar el mismo aviso). */
+  recordatorio: `${BASE}/Identifier/recordatorio`,
   config: `${BASE}/Identifier/config`,
 } as const;
 
