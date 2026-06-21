@@ -44,7 +44,7 @@
     },
     {
       "name": "bw-webhook-mercadopago",
-      "id": "",
+      "id": "3e20bb14-eed3-4f1c-ae5a-246d5dac5ab0",
       "source": "src/bots/webhook-mercadopago.ts",
       "dist": "dist/bots/webhook-mercadopago.js"
     },
@@ -68,7 +68,7 @@
     },
     {
       "name": "bw-recordatorios",
-      "id": "",
+      "id": "9a77e666-17ed-4d05-b3ff-93866428622e",
       "source": "src/bots/recordatorios.ts",
       "dist": "dist/bots/recordatorios.js"
     }
