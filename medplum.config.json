@@ -38,7 +38,7 @@
     },
     {
       "name": "bw-link-mercadopago",
-      "id": "",
+      "id": "7cbabc5b-f121-4201-8e39-7b60bac39d5d",
       "source": "src/bots/link-mercadopago.ts",
       "dist": "dist/bots/link-mercadopago.js"
     },
