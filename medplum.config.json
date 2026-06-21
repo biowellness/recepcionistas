@@ -2,7 +2,7 @@
   "bots": [
     {
       "name": "bw-calcular-cobro",
-      "id": "ceebae3e-8897-4828-a506-a985a224b3ec",
+      "id": "7194a2a5-d3cf-4eaf-a8a2-7139715dd0be",
       "source": "src/bots/calcular-cobro.ts",
       "dist": "dist/bots/calcular-cobro.js"
     },
@@ -11,6 +11,54 @@
       "id": "8fdb31bd-70b1-49f3-822b-6efe9d5fdef6",
       "source": "src/bots/validar-turno.ts",
       "dist": "dist/bots/validar-turno.js"
+    },
+    {
+      "name": "bw-reservar-turno",
+      "id": "af6b1441-47f9-44f7-a58e-891c64d44d2f",
+      "source": "src/bots/reservar-turno.ts",
+      "dist": "dist/bots/reservar-turno.js"
+    },
+    {
+      "name": "bw-reservar-combo",
+      "id": "fe25ce30-a20f-4c13-898e-99c1829b2833",
+      "source": "src/bots/reservar-combo.ts",
+      "dist": "dist/bots/reservar-combo.js"
+    },
+    {
+      "name": "bw-estado-turno",
+      "id": "591bd7d7-5393-4bb5-9107-914b0b2ac70a",
+      "source": "src/bots/estado-turno.ts",
+      "dist": "dist/bots/estado-turno.js"
+    },
+    {
+      "name": "bw-pagar-sena",
+      "id": "da232e5c-140a-44de-a584-8d5dd0fe24f5",
+      "source": "src/bots/pagar-sena.ts",
+      "dist": "dist/bots/pagar-sena.js"
+    },
+    {
+      "name": "bw-link-mercadopago",
+      "id": "",
+      "source": "src/bots/link-mercadopago.ts",
+      "dist": "dist/bots/link-mercadopago.js"
+    },
+    {
+      "name": "bw-webhook-mercadopago",
+      "id": "3e20bb14-eed3-4f1c-ae5a-246d5dac5ab0",
+      "source": "src/bots/webhook-mercadopago.ts",
+      "dist": "dist/bots/webhook-mercadopago.js"
+    },
+    {
+      "name": "bw-asignar-plan",
+      "id": "6c2d6f5c-e143-4364-b0ce-558ec413c0f2",
+      "source": "src/bots/asignar-plan.ts",
+      "dist": "dist/bots/asignar-plan.js"
+    },
+    {
+      "name": "bw-cobro-membresias",
+      "id": "3acef4fb-b093-41ae-ba90-f67b5cdf9664",
+      "source": "src/bots/cobro-membresias.ts",
+      "dist": "dist/bots/cobro-membresias.js"
     },
     {
       "name": "bw-enviar-whatsapp",
