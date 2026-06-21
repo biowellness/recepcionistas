@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Box, Button, Center, Group, Loader, Stack, Text, Title } from '@mantine/core';
+import { Alert, Box, Button, Center, Group, Loader, SegmentedControl, Stack, Text, Title } from '@mantine/core';
 import { IconRefresh, IconInfoCircle } from '@tabler/icons-react';
 import { cargarTimeline, type TimelineData, type TurnoTimeline } from '../lib/timeline';
 import { Timeline } from '../components/Timeline';
+import { ProximosTurnos } from '../components/ProximosTurnos';
 import { ReservaModal, type PresetReserva } from '../components/ReservaModal';
 import { TurnoModal } from '../components/TurnoModal';
 import { colorEstado, labelEstado } from '../lib/estados';
 
 const REFRESCO_MS = 60_000;
 
+/** Rango visible: hoy (grilla operativa) o ventana de 7/14 días (lista). */
+type Rango = 'hoy' | '7' | '14';
+
 export function AgendaDelDia(): JSX.Element {
+  const [rango, setRango] = useState<Rango>('hoy');
   const [data, setData] = useState<TimelineData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -29,48 +34,69 @@ export function AgendaDelDia(): JSX.Element {
   }, []);
 
   useEffect(() => {
+    if (rango !== 'hoy') {
+      return;
+    }
     void refrescar();
     const id = setInterval(() => void refrescar(), REFRESCO_MS);
     return () => clearInterval(id);
-  }, [refrescar]);
+  }, [refrescar, rango]);
 
   const hoy = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const subtitulo = rango === 'hoy' ? hoy : `Próximos ${rango} días`;
 
   return (
     <Stack gap="lg">
       <Group justify="space-between" align="flex-end">
         <Stack gap={0}>
-          <Title order={2}>Agenda del día</Title>
+          <Title order={2}>Agenda</Title>
           <Text c="dimmed" tt="capitalize">
-            {hoy}
+            {subtitulo}
           </Text>
         </Stack>
         <Group gap="sm">
-          <Leyenda />
-          <Button variant="light" leftSection={<IconRefresh size={16} />} onClick={() => void refrescar()} loading={cargando}>
-            Actualizar
-          </Button>
+          {rango === 'hoy' && <Leyenda />}
+          <SegmentedControl
+            value={rango}
+            onChange={(v) => setRango(v as Rango)}
+            data={[
+              { value: 'hoy', label: 'Hoy' },
+              { value: '7', label: '7 días' },
+              { value: '14', label: '14 días' },
+            ]}
+          />
+          {rango === 'hoy' && (
+            <Button variant="light" leftSection={<IconRefresh size={16} />} onClick={() => void refrescar()} loading={cargando}>
+              Actualizar
+            </Button>
+          )}
         </Group>
       </Group>
 
-      {error && (
-        <Alert color="red" icon={<IconInfoCircle size={16} />} title="No se pudo cargar">
-          {error}
-        </Alert>
-      )}
+      {rango === 'hoy' ? (
+        <>
+          {error && (
+            <Alert color="red" icon={<IconInfoCircle size={16} />} title="No se pudo cargar">
+              {error}
+            </Alert>
+          )}
 
-      {data === null && !error && (
-        <Center mih={240}>
-          <Loader />
-        </Center>
-      )}
+          {data === null && !error && (
+            <Center mih={240}>
+              <Loader />
+            </Center>
+          )}
 
-      {data && (
-        <Timeline
-          data={data}
-          onReservar={(recursoCodigo, horaMin) => setPreset({ recursoCodigo, horaMin })}
-          onTurno={(t) => setTurnoSel(t)}
-        />
+          {data && (
+            <Timeline
+              data={data}
+              onReservar={(recursoCodigo, horaMin) => setPreset({ recursoCodigo, horaMin })}
+              onTurno={(t) => setTurnoSel(t)}
+            />
+          )}
+        </>
+      ) : (
+        <ProximosTurnos dias={Number(rango)} />
       )}
 
       <ReservaModal preset={preset} onClose={() => setPreset(null)} onReservado={() => void refrescar()} />
