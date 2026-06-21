@@ -15,6 +15,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed": "tsx src/seed/index.ts",
+    "seed:prueba-recordatorios": "tsx src/seed/prueba-recordatorios.ts",
     "limpiar": "tsx src/seed/limpiar.ts",
     "bots:bundle": "tsx src/seed/deploy-bots.ts --dry-run",
     "deploy:bots": "tsx src/seed/deploy-bots.ts",
