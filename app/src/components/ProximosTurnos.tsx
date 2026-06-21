@@ -86,7 +86,7 @@ export function ProximosTurnos({ dias }: { dias: number }): JSX.Element {
                   onClick={() => setTurnoSel(t)}
                   style={{
                     cursor: 'pointer',
-                    borderTop: i === 0 ? undefined : '1px solid var(--mantine-color-gray-2)',
+                    borderTop: i === 0 ? undefined : '1px solid var(--mantine-color-default-border)',
                   }}
                   className="bw-fila"
                 >
@@ -114,7 +114,7 @@ export function ProximosTurnos({ dias }: { dias: number }): JSX.Element {
         </Stack>
       ))}
 
-      <style>{`.bw-fila:hover{background:var(--mantine-color-gray-0);}`}</style>
+      <style>{`.bw-fila:hover{background:var(--mantine-color-default-hover);}`}</style>
 
       <TurnoModal turno={turnoSel} onClose={() => setTurnoSel(null)} onCambiado={() => void refrescar()} />
     </Stack>
