@@ -306,7 +306,10 @@ function DateField({
           height: 36,
           padding: '0 12px',
           borderRadius: 8,
-          border: '1px solid var(--mantine-color-gray-4)',
+          border: '1px solid var(--mantine-color-default-border)',
+          background: 'var(--mantine-color-body)',
+          color: 'var(--mantine-color-text)',
+          colorScheme: 'light dark',
           fontSize: 14,
           fontFamily: 'inherit',
         }}
