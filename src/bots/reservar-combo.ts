@@ -39,6 +39,8 @@ export interface EntradaCombo {
   coverageId?: string;
   /** Si es false, solo valida/planifica (no crea). Default true. */
   confirmar?: boolean;
+  /** Si es false, no envía el WhatsApp por sesión (la pre-agenda manda uno solo de resumen). Default true. */
+  notificar?: boolean;
 }
 
 export interface ItemPlanDTO {
@@ -245,13 +247,15 @@ export async function handler(medplum: MedplumClient, event: BotEvent<EntradaCom
     orden++;
   }
 
-  await enviarWhatsApp(medplum, event.secrets, {
-    template: consumo ? 'reserva-plan' : 'reserva-tentativa',
-    pacienteRef: e.pacienteRef,
-    body: consumo
-      ? `BioWellness: ¡tu ${combo.nombre} quedó confirmado con tu membresía para las ${fmtHora(inicio)}! Te quedan ${consumo.restantes} sesiones este mes. ¡Te esperamos! 💚`
-      : `BioWellness: reservamos tu ${combo.nombre} para las ${fmtHora(inicio)} (tentativo). Aboná la seña del 50% para confirmarlo. 💚`,
-  });
+  if (e.notificar !== false) {
+    await enviarWhatsApp(medplum, event.secrets, {
+      template: consumo ? 'reserva-plan' : 'reserva-tentativa',
+      pacienteRef: e.pacienteRef,
+      body: consumo
+        ? `BioWellness: ¡tu ${combo.nombre} quedó confirmado con tu membresía para las ${fmtHora(inicio)}! Te quedan ${consumo.restantes} sesiones este mes. ¡Te esperamos! 💚`
+        : `BioWellness: reservamos tu ${combo.nombre} para las ${fmtHora(inicio)} (tentativo). Aboná la seña del 50% para confirmarlo. 💚`,
+    });
+  }
 
   return {
     ...resultado,
