@@ -2,25 +2,25 @@
   "bots": [
     {
       "name": "bw-calcular-cobro",
-      "id": "REEMPLAZAR_CON_BOT_ID",
+      "id": "ceebae3e-8897-4828-a506-a985a224b3ec",
       "source": "src/bots/calcular-cobro.ts",
       "dist": "dist/bots/calcular-cobro.js"
     },
     {
       "name": "bw-validar-turno",
-      "id": "REEMPLAZAR_CON_BOT_ID",
+      "id": "8fdb31bd-70b1-49f3-822b-6efe9d5fdef6",
       "source": "src/bots/validar-turno.ts",
       "dist": "dist/bots/validar-turno.js"
     },
     {
       "name": "bw-enviar-whatsapp",
-      "id": "REEMPLAZAR_CON_BOT_ID",
+      "id": "d2b6ddf8-3c01-4bf6-94d7-44e7854107b5",
       "source": "src/bots/enviar-whatsapp.ts",
       "dist": "dist/bots/enviar-whatsapp.js"
     },
     {
       "name": "bw-recordatorios",
-      "id": "REEMPLAZAR_CON_BOT_ID",
+      "id": "9a77e666-17ed-4d05-b3ff-93866428622e",
       "source": "src/bots/recordatorios.ts",
       "dist": "dist/bots/recordatorios.js"
     }
