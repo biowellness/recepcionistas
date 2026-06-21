@@ -17,6 +17,12 @@
       "id": "REEMPLAZAR_CON_BOT_ID",
       "source": "src/bots/enviar-whatsapp.ts",
       "dist": "dist/bots/enviar-whatsapp.js"
+    },
+    {
+      "name": "bw-recordatorios",
+      "id": "REEMPLAZAR_CON_BOT_ID",
+      "source": "src/bots/recordatorios.ts",
+      "dist": "dist/bots/recordatorios.js"
     }
   ]
 }
