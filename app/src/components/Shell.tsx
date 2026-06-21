@@ -33,7 +33,7 @@ export function Shell({ vista, onVista, children }: ShellProps): JSX.Element {
             value={vista}
             onChange={(v) => onVista(v as Vista)}
             data={[
-              { value: 'agenda', label: segLabel(<IconCalendarEvent size={16} />, 'Agenda del día') },
+              { value: 'agenda', label: segLabel(<IconCalendarEvent size={16} />, 'Agenda') },
               { value: 'atender', label: segLabel(<IconUserHeart size={16} />, 'Atender paciente') },
               { value: 'reportes', label: segLabel(<IconChartBar size={16} />, 'Reportes') },
             ]}
