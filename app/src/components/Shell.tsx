@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 import { AppShell, Group, Title, SegmentedControl, Button, Text } from '@mantine/core';
-import { IconCalendarEvent, IconUserHeart, IconChartBar, IconLogout } from '@tabler/icons-react';
+import { IconCalendarEvent, IconUserHeart, IconChartBar, IconLicense, IconLogout } from '@tabler/icons-react';
 import { useMedplum, useMedplumProfile } from '@medplum/react';
 import { getDisplayString } from '@medplum/core';
 
-export type Vista = 'agenda' | 'atender' | 'reportes';
+export type Vista = 'agenda' | 'planes' | 'atender' | 'reportes';
 
 interface ShellProps {
   vista: Vista;
@@ -34,6 +34,7 @@ export function Shell({ vista, onVista, children }: ShellProps): JSX.Element {
             onChange={(v) => onVista(v as Vista)}
             data={[
               { value: 'agenda', label: segLabel(<IconCalendarEvent size={16} />, 'Agenda') },
+              { value: 'planes', label: segLabel(<IconLicense size={16} />, 'Planes y sesiones') },
               { value: 'atender', label: segLabel(<IconUserHeart size={16} />, 'Atender paciente') },
               { value: 'reportes', label: segLabel(<IconChartBar size={16} />, 'Reportes') },
             ]}

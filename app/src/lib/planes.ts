@@ -17,7 +17,7 @@ export interface PlanPaciente {
   baseCodigo: string;
 }
 
-function nombreYBase(tipo: EstadoPlan['tipo'], planCodigo: string): { nombre: string; base: string } {
+export function nombreYBase(tipo: EstadoPlan['tipo'], planCodigo: string): { nombre: string; base: string } {
   if (tipo === 'membresia') {
     const m = MEMBRESIAS_POR_CODIGO.get(planCodigo);
     return {
