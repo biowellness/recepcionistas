@@ -91,6 +91,8 @@ export interface ComboInput {
   /** Coverage (membresía) con el que se paga el combo: confirma sin seña. */
   coverageId?: string;
   confirmar?: boolean;
+  /** Si es false, el bot no manda el WhatsApp por sesión (para la pre-agenda en serie). */
+  notificar?: boolean;
 }
 
 export interface ItemPlanDTO {
@@ -115,6 +117,12 @@ export interface ResultadoCombo {
 export async function reservarCombo(input: ComboInput): Promise<ResultadoCombo> {
   const id = await botIdPorNombre('bw-reservar-combo');
   return (await medplum.executeBot(id, input)) as ResultadoCombo;
+}
+
+/** Envía un WhatsApp (y registra Communication). Best-effort: usado para el resumen de la pre-agenda. */
+export async function enviarWhatsApp(input: { pacienteRef: string; template: string; body: string }): Promise<void> {
+  const id = await botIdPorNombre('bw-enviar-whatsapp');
+  await medplum.executeBot(id, input);
 }
 
 export type EstadoTurno = 'arrived' | 'checked-in' | 'fulfilled' | 'cancelled';

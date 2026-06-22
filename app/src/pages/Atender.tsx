@@ -37,6 +37,7 @@ import {
   type ResultadoCombo,
 } from '../lib/bots';
 import { cargarPlanesActivos, planUsable, type PlanPaciente } from '../lib/planes';
+import { PreAgendaModal } from '../components/PreAgendaModal';
 import { SERVICIOS } from '@bw/config/catalogo';
 import { COMBOS } from '@bw/config/combos';
 import { MEMBRESIAS } from '@bw/config/membresias';
@@ -45,11 +46,38 @@ import { recursosParaCategoria } from '@bw/config/recursos';
 import { generarSlots } from '@bw/lib/slots';
 import { HORARIO_SEMANAL } from '@bw/config/horario';
 
-export function Atender(): JSX.Element {
+export function Atender({
+  pacienteInicialId,
+  onPacienteInicialCargado,
+}: {
+  /** Si viene, se abre directo la ficha de ese paciente (p. ej. desde Planes y sesiones). */
+  pacienteInicialId?: string | null;
+  onPacienteInicialCargado?: () => void;
+} = {}): JSX.Element {
   const [query, setQuery] = useState('');
   const [resultados, setResultados] = useState<Patient[] | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [seleccionado, setSeleccionado] = useState<Patient | null>(null);
+
+  useEffect(() => {
+    if (!pacienteInicialId) {
+      return;
+    }
+    let cancelado = false;
+    medplum
+      .readResource('Patient', pacienteInicialId)
+      .then((p) => {
+        if (!cancelado) {
+          setSeleccionado(p);
+          onPacienteInicialCargado?.();
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelado = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pacienteInicialId]);
 
   async function buscar(): Promise<void> {
     if (!query.trim()) {
@@ -156,6 +184,7 @@ function PanelPlanes({
   const [asignando, setAsignando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const [preAgenda, setPreAgenda] = useState<PlanPaciente | null>(null);
 
   const opciones =
     tipo === 'membresia'
@@ -215,6 +244,16 @@ function PanelPlanes({
                 </Badge>
                 {p.saldo.vencido && <Badge color="red">vencido</Badge>}
                 {p.saldo.agotado && !p.saldo.vencido && <Badge color="orange">agotado (R-10)</Badge>}
+                {p.estado.tipo === 'membresia' && p.saldo.disponible && p.saldo.restantes > 0 && (
+                  <Button
+                    size="compact-sm"
+                    variant="light"
+                    leftSection={<IconCalendarPlus size={14} />}
+                    onClick={() => setPreAgenda(p)}
+                  >
+                    Pre-agendar mes
+                  </Button>
+                )}
               </Group>
             </Group>
           ))}
@@ -275,6 +314,13 @@ function PanelPlanes({
           {ok}
         </Alert>
       )}
+
+      <PreAgendaModal
+        plan={preAgenda}
+        pacienteRef={`Patient/${paciente.id}`}
+        onClose={() => setPreAgenda(null)}
+        onAgendado={() => void onCambio()}
+      />
     </Card>
   );
 }

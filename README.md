@@ -111,7 +111,8 @@ Pantallas del esqueleto:
 ## Documentación
 
 - [`docs/bloque-0.md`](docs/bloque-0.md) — alcance técnico y Definition of Done
-- [`docs/bots.md`](docs/bots.md) — los 3 bots, deploy y secretos
+- [`docs/bots.md`](docs/bots.md) — los Bots, deploy, secretos y recordatorios
+- [`docs/app-recepcion.md`](docs/app-recepcion.md) — la app de recepción: vistas y features (dashboard, pre-agenda, modo oscuro)
 - [`docs/reglas-negocio.md`](docs/reglas-negocio.md) — reglas R-01..R-18
 - [`docs/modelo-datos-fhir.md`](docs/modelo-datos-fhir.md) — recursos y extensiones FHIR
 - [`docs/decisiones-pendientes.md`](docs/decisiones-pendientes.md) — decisiones abiertas

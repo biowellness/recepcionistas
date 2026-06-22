@@ -5,7 +5,7 @@ TypeScript que se bundlean a un único módulo CJS (`exports.handler`) y se
 deployan al runtime **`awslambda`** de Medplum (configurable con la env
 `BOT_RUNTIME_VERSION`).
 
-## Los 3 bots del Bloque 0
+## Los bots
 
 | Bot | Qué hace | Cómo se invoca |
 |---|---|---|
@@ -21,6 +21,7 @@ deployan al runtime **`awslambda`** de Medplum (configurable con la env
 | `bw-cobro-membresias` | **Cron días 1-5:** renueva cada membresía activa (reset de sesiones + cobro mensual + WhatsApp). | `cronTimer` del Bot (a diario). |
 | `bw-recordatorios` | **Cron:** recuerda los turnos confirmados a 48 h y 2 h por WhatsApp. | `cronTimer` del Bot (cada ~30 min). |
 | `bw-enviar-whatsapp` | Envía WhatsApp (Twilio) y registra `Communication`. | `executeBot` por evento o manual. |
+| `bw-recordatorios` | **Cron horario:** recordatorios de turno (24h/1h) y de saldo en riesgo, por WhatsApp **y** email. | `cronTimer` del Bot (cada hora). |
 
 ## Deploy
 
@@ -41,20 +42,46 @@ npm run deploy:bots   # crea (si faltan) + bundlea + deploya + guarda ids
 
 Es idempotente: reejecutar redeploya el código sobre los bots existentes.
 
-## Secretos (WhatsApp / Twilio)
+## Comunicaciones: secretos y comportamiento
 
-En Medplum los bots leen secretos de `event.secrets`, **no** de `process.env`.
-Para que `bw-enviar-whatsapp` envíe, cargá estos **Project Secrets** en el panel
-de Medplum (Project → Secrets):
+En Medplum los bots leen secretos de `event.secrets`, **no** de `process.env`
+(el `.env` de la raíz es solo para el seed/deploy, que corren en tu máquina). Los
+secretos se cargan como **Project Secrets** en el panel de Medplum
+(Project → Secrets).
+
+**Regla de oro:** los helpers (`enviarWhatsApp` / `enviarEmail` en
+`src/bots/_shared.ts`) **siempre** registran la `Communication`, pero **solo
+envían** si está la configuración completa. Así se puede probar la lógica sin
+spamear a nadie. Estados resultantes:
+
+| Situación | Estado de la `Communication` | ¿Se envió? |
+|---|---|---|
+| Config completa + destinatario válido | `completed` | sí |
+| Falta secreto / falta teléfono o email del paciente | `preparation` | no |
+| El proveedor (Twilio/SES) devuelve error | `entered-in-error` | no |
+
+### WhatsApp (Twilio)
 
 - `TWILIO_ACCOUNT_SID`
 - `TWILIO_AUTH_TOKEN`
 - `TWILIO_WHATSAPP_FROM` (formato `whatsapp:+549...`)
 
-Sin secretos, el bot no envía pero igual registra la `Communication` en estado
-`preparation` (útil en pruebas). El WhatsApp se dispara automático **al reservar**
-(turno tentativo) y **al pagar la seña** (confirmado). El destinatario sale del
-`Patient.telecom` (teléfono).
+El destinatario sale de `Patient.telecom` (teléfono/SMS). El WhatsApp se dispara
+automático **al reservar** (turno tentativo), **al pagar la seña** (confirmado),
+**al renovar la membresía** y en los **recordatorios** (ver abajo).
+
+### Email (AWS SES)
+
+El email se envía con `medplum.sendEmail()`, que usa el proveedor **AWS SES
+configurado en el servidor Medplum** — **no** hacen falta credenciales de SES en
+el código ni en los Project Secrets. Solo hay que tener:
+
+- un **remitente verificado** en SES (referencia local: `SES_FROM_EMAIL` en
+  `.env.example`), y
+- el `Patient.telecom` con un email (de ahí sale el destinatario).
+
+Sin email en el paciente (o si SES falla), la `Communication` igual queda
+registrada (`preparation` / `entered-in-error`).
 
 Para el link de MercadoPago (seña), además: `MERCADOPAGO_ACCESS_TOKEN`. Si no
 está, el flujo manual de seña sigue funcionando y el bot de link avisa que MP no

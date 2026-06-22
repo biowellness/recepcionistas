@@ -44,12 +44,12 @@ export function Timeline({
     turnosPorSala.set(t.recursoCodigo, arr);
   }
 
-  const lineas = `repeating-linear-gradient(to right, var(--mantine-color-gray-2) 0 1px, transparent 1px ${COL_W}px)`;
+  const lineas = `repeating-linear-gradient(to right, var(--mantine-color-default-border) 0 1px, transparent 1px ${COL_W}px)`;
   const ahoraVisible = data.ahoraMin >= data.aperturaMin && data.ahoraMin <= data.cierreMin;
 
   return (
     <ScrollArea type="auto" offsetScrollbars>
-      <style>{`.bw-slot:hover{background:var(--mantine-color-teal-1);}`}</style>
+      <style>{`.bw-slot:hover{background:var(--mantine-color-teal-light);}`}</style>
       <Box style={{ minWidth: NAME_W + trackW }}>
         {/* Encabezado de horas */}
         <Group gap={0} wrap="nowrap">
@@ -67,7 +67,7 @@ export function Timeline({
 
         {/* Filas de salas */}
         {data.salas.map((sala) => (
-          <Group key={sala.codigo} gap={0} wrap="nowrap" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
+          <Group key={sala.codigo} gap={0} wrap="nowrap" style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}>
             <Box w={NAME_W} p="xs" style={{ flexShrink: 0 }}>
               <Text size="sm" fw={500} lineClamp={2}>
                 {sala.nombre}

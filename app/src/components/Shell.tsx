@@ -1,10 +1,20 @@
 import type { ReactNode } from 'react';
-import { AppShell, Group, Title, SegmentedControl, Button, Text } from '@mantine/core';
-import { IconCalendarEvent, IconUserHeart, IconChartBar, IconLogout } from '@tabler/icons-react';
+import {
+  AppShell,
+  Group,
+  Title,
+  SegmentedControl,
+  Button,
+  Text,
+  ActionIcon,
+  useMantineColorScheme,
+  useComputedColorScheme,
+} from '@mantine/core';
+import { IconCalendarEvent, IconUserHeart, IconChartBar, IconLicense, IconLogout, IconSun, IconMoon } from '@tabler/icons-react';
 import { useMedplum, useMedplumProfile } from '@medplum/react';
 import { getDisplayString } from '@medplum/core';
 
-export type Vista = 'agenda' | 'atender' | 'reportes';
+export type Vista = 'agenda' | 'planes' | 'atender' | 'reportes';
 
 interface ShellProps {
   vista: Vista;
@@ -15,6 +25,9 @@ interface ShellProps {
 export function Shell({ vista, onVista, children }: ShellProps): JSX.Element {
   const medplum = useMedplum();
   const profile = useMedplumProfile();
+  const { setColorScheme } = useMantineColorScheme();
+  const esquema = useComputedColorScheme('light', { getInitialValueInEffect: true });
+  const oscuro = esquema === 'dark';
 
   return (
     <AppShell header={{ height: 64 }} padding="md">
@@ -33,7 +46,8 @@ export function Shell({ vista, onVista, children }: ShellProps): JSX.Element {
             value={vista}
             onChange={(v) => onVista(v as Vista)}
             data={[
-              { value: 'agenda', label: segLabel(<IconCalendarEvent size={16} />, 'Agenda del día') },
+              { value: 'agenda', label: segLabel(<IconCalendarEvent size={16} />, 'Agenda') },
+              { value: 'planes', label: segLabel(<IconLicense size={16} />, 'Planes y sesiones') },
               { value: 'atender', label: segLabel(<IconUserHeart size={16} />, 'Atender paciente') },
               { value: 'reportes', label: segLabel(<IconChartBar size={16} />, 'Reportes') },
             ]}
@@ -43,6 +57,15 @@ export function Shell({ vista, onVista, children }: ShellProps): JSX.Element {
             <Text size="sm" visibleFrom="sm">
               {profile ? getDisplayString(profile) : ''}
             </Text>
+            <ActionIcon
+              variant="default"
+              size="lg"
+              onClick={() => setColorScheme(oscuro ? 'light' : 'dark')}
+              aria-label={oscuro ? 'Activar modo claro' : 'Activar modo oscuro'}
+              title={oscuro ? 'Modo claro' : 'Modo oscuro'}
+            >
+              {oscuro ? <IconSun size={18} /> : <IconMoon size={18} />}
+            </ActionIcon>
             <Button
               variant="light"
               color="gray"
