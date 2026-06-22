@@ -39,9 +39,15 @@ export function InvitarPortal({ paciente }: { paciente: Patient }): JSX.Element 
           setError(r.mensaje ?? 'No se pudo generar el QR.');
         }
       } else {
-        setOk(canal === 'whatsapp' ? 'Invitación enviada por WhatsApp ✓' : 'Invitación enviada por email ✓');
+        // El acceso se creó; mostramos el link siempre para poder compartirlo igual.
         if (r.link) {
           setLink(r.link);
+        }
+        if (r.enviado) {
+          setOk(canal === 'whatsapp' ? 'Invitación enviada por WhatsApp ✓' : 'Invitación enviada por email ✓');
+        } else {
+          // El envío real falló (Twilio/SES): avisamos y queda el link para copiar.
+          setError(r.mensaje ?? 'El acceso se creó, pero el envío no salió. Compartí el link manualmente.');
         }
       }
     } catch (e) {
