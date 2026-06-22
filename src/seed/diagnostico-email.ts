@@ -43,8 +43,14 @@ async function main(): Promise<void> {
     'Este es un email de prueba del diagnóstico de recepción BioWellness.\n\n' +
     'Si lo recibiste, la cadena Medplum → SES funciona. 💚';
 
+  // `from` opcional: por defecto lo decide el server (su supportEmail, p. ej.
+  // hola@medplum.com.ar). Con SES_FROM_EMAIL probás un remitente explícito (útil
+  // para ver si el server lo acepta o exige el supportEmail).
+  const from = process.env.SES_FROM_EMAIL?.trim();
+  console.log(`From: ${from ?? '(default del server: supportEmail)'}`);
+
   try {
-    const r = await medplum.sendEmail({ to, subject: asunto, text: cuerpo });
+    const r = await medplum.sendEmail({ to, subject: asunto, text: cuerpo, ...(from ? { from } : {}) });
     console.log('\n✓ medplum.sendEmail() OK. SES aceptó el mensaje.');
     if (r) {
       console.log('Respuesta:', JSON.stringify(r));
