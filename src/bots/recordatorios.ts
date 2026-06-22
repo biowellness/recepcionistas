@@ -1,80 +1,59 @@
 /**
- * Bot · Recordatorios (cron).
+ * Bot · Recordatorios automáticos de turnos (cron, 48 h y 2 h).
  *
- * Pensado para correr cada hora (Bot con cronTimer). Hace dos cosas y registra
- * todo como Communication (WhatsApp + email):
+ * Pensado para ejecutarse seguido (cronTimer, p. ej. cada 30 min). Busca los
+ * turnos CONFIRMADOS (`booked`) que arrancan dentro de la ventana máxima (48 h) y,
+ * para cada uno, manda el recordatorio que corresponda (48 h → 2 h) por WhatsApp.
  *
- *  1. Recordatorio de turno: avisa 24h y 1h antes de cada turno confirmado. Los
- *     combos (varios Appointment) cuentan como UNA visita → un solo aviso.
- *  2. Saldo en riesgo: avisa cuando quedan sesiones libres por perderse pronto
- *     (membresía al cerrar el mes; paquete al vencer).
+ * - Idempotente: registra cada recordatorio como `Communication` con un identifier
+ *   único (`recordatorio-{tipo}-{grupo}`); si ya existe, no reenvía.
+ * - Combos: un solo recordatorio por combo (el componente que arranca primero),
+ *   no uno por cada sesión.
  *
- * Idempotente: cada aviso lleva un `identifier` único; si ya existe la
- * Communication, no se reenvía aunque el cron corra muchas veces.
+ * La decisión de "qué recordatorio toca" vive en `src/lib/recordatorios.ts` (pura).
  */
 import type { BotEvent, MedplumClient } from '@medplum/core';
-import type { Appointment, Coverage } from '@medplum/fhirtypes';
+import type { Appointment } from '@medplum/fhirtypes';
 import { SYSTEM } from '../fhir/identifiers.js';
-import { estadoDeCoverage } from '../fhir/coverage.js';
-import { saldoPlan } from '../lib/planes.js';
-import { hitosEnVentana, riesgoDeSaldo, type HitoTurno } from '../lib/recordatorios.js';
-import { enviarEmail, enviarWhatsApp, yaNotificado } from './_shared.js';
+import { recordatorioDue, VENTANA_MAX_MS, type TipoRecordatorio } from '../lib/recordatorios.js';
+import { enviarWhatsApp } from './_shared.js';
 
 export interface EntradaRecordatorios {
   /** Fecha de referencia ISO (default: ahora). Útil para pruebas/reprocesos. */
   ahora?: string;
-  /** Días de anticipación para avisar saldo en riesgo. Default 7. */
-  ventanaSaldoDias?: number;
 }
 
 export interface ResultadoRecordatorios {
   ok: boolean;
-  turnos24h: number;
-  turnos1h: number;
-  saldos: number;
+  /** Recordatorios de 48 h enviados en esta corrida. */
+  enviados48: number;
+  /** Recordatorios de 2 h enviados en esta corrida. */
+  enviados2: number;
+  /** Turnos/combos que ya tenían el recordatorio (se omiten). */
+  omitidos: number;
 }
 
-const tz = 'America/Argentina/Buenos_Aires';
-const fmtHora = new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
-const fmtFecha = new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: tz });
+const fmtFechaHora = new Intl.DateTimeFormat('es-AR', {
+  weekday: 'long',
+  day: '2-digit',
+  month: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+  timeZone: 'America/Argentina/Buenos_Aires',
+});
+const fmtHora = new Intl.DateTimeFormat('es-AR', {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+  timeZone: 'America/Argentina/Buenos_Aires',
+});
 
-interface Visita {
-  key: string;
-  inicio: Date;
-  pacienteRef?: string;
-  apptId: string;
-  descripcion: string;
-}
-
-/** Una visita por combo (identifier compartido) o por turno suelto; toma el inicio más temprano. */
-export function agruparVisitas(appts: Appointment[]): Visita[] {
-  const porKey = new Map<string, Visita>();
-  for (const a of appts) {
-    if (!a.start || !a.id) {
-      continue;
-    }
-    const comboId = a.identifier?.find((i) => i.system === SYSTEM.comboCodigo)?.value;
-    const key = comboId ?? a.id;
-    const inicio = new Date(a.start);
-    const previa = porKey.get(key);
-    if (!previa || inicio < previa.inicio) {
-      porKey.set(key, {
-        key,
-        inicio,
-        apptId: a.id,
-        pacienteRef: a.participant?.find((p) => p.actor?.reference?.startsWith('Patient/'))?.actor?.reference,
-        descripcion: a.description?.split(' · ')[0] ?? 'tu sesión',
-      });
-    }
+function cuerpo(tipo: TipoRecordatorio, descripcion: string, inicio: Date): string {
+  if (tipo === '2h') {
+    return `BioWellness: ¡tu turno de ${descripcion} es hoy a las ${fmtHora.format(inicio)}! Te esperamos en un rato. 💚`;
   }
-  return [...porKey.values()];
-}
-
-function mensajeTurno(hito: HitoTurno, desc: string, inicio: Date): string {
-  const hora = fmtHora.format(inicio);
-  return hito === '24h'
-    ? `BioWellness: te recordamos tu turno de ${desc} mañana ${fmtFecha.format(inicio)} a las ${hora}. Si no podés, avisanos así liberamos el lugar. ¡Te esperamos! 💚`
-    : `BioWellness: tu turno de ${desc} es en una hora, a las ${hora}. ¡Te esperamos! 💚`;
+  return `BioWellness: te recordamos tu turno de ${descripcion} el ${fmtFechaHora.format(inicio)}. ¡Te esperamos! 💚`;
 }
 
 export async function handler(
@@ -82,95 +61,61 @@ export async function handler(
   event: BotEvent<EntradaRecordatorios>,
 ): Promise<ResultadoRecordatorios> {
   const ahora = event.input?.ahora ? new Date(event.input.ahora) : new Date();
-  const ventanaSaldoDias = event.input?.ventanaSaldoDias ?? 7;
+  const fin = new Date(ahora.getTime() + VENTANA_MAX_MS);
 
-  // ── 1. Recordatorios de turno (próximas 25h, confirmados) ──────────────────
-  const limite = new Date(ahora.getTime() + 25 * 60 * 60_000);
-  const appts = await medplum.searchResources(
+  const turnos = await medplum.searchResources(
     'Appointment',
-    `status=booked&date=ge${ahora.toISOString()}&date=le${limite.toISOString()}&_count=500`,
+    `status=booked&date=ge${ahora.toISOString()}&date=le${fin.toISOString()}&_count=500`,
   );
 
-  let turnos24h = 0;
-  let turnos1h = 0;
-  for (const v of agruparVisitas(appts)) {
-    const minutos = (v.inicio.getTime() - ahora.getTime()) / 60_000;
-    for (const hito of hitosEnVentana(minutos)) {
-      const dedup = `turno-${v.key}-${hito}`;
-      if (await yaNotificado(medplum, dedup)) {
-        continue;
-      }
-      const body = mensajeTurno(hito, v.descripcion, v.inicio);
-      await enviarWhatsApp(medplum, event.secrets, {
-        template: `recordatorio-turno-${hito}`,
-        body,
-        pacienteRef: v.pacienteRef,
-        about: `Appointment/${v.apptId}`,
-        identifier: { system: SYSTEM.recordatorio, value: dedup },
-      });
-      await enviarEmail(medplum, {
-        template: `recordatorio-turno-${hito}`,
-        asunto: 'Recordatorio de tu turno en BioWellness',
-        cuerpo: body,
-        pacienteRef: v.pacienteRef,
-        about: `Appointment/${v.apptId}`,
-      });
-      if (hito === '24h') {
-        turnos24h++;
-      } else {
-        turnos1h++;
-      }
+  // Un recordatorio por turno o por combo: nos quedamos con el que arranca primero.
+  const grupos = new Map<string, Appointment>();
+  for (const t of turnos) {
+    if (!t.start || !t.id) {
+      continue;
+    }
+    const comboId = t.identifier?.find((i) => i.system === SYSTEM.comboCodigo)?.value;
+    const groupId = comboId ?? t.id;
+    const actual = grupos.get(groupId);
+    if (!actual || (actual.start && t.start < actual.start)) {
+      grupos.set(groupId, t);
     }
   }
 
-  // ── 2. Saldo en riesgo (sesiones libres por perderse) ──────────────────────
-  const coberturas = await medplum.searchResources('Coverage', { status: 'active', _count: 500 });
-  let saldos = 0;
-  for (const c of coberturas as Coverage[]) {
-    if (!c.id) {
-      continue;
-    }
-    const estado = estadoDeCoverage(c);
-    const saldo = saldoPlan(estado, ahora);
-    const riesgo = riesgoDeSaldo({
-      tipo: estado.tipo,
-      libres: saldo.restantes,
-      vencimiento: estado.vencimiento,
-      ahora,
-      ventanaDias: ventanaSaldoDias,
-    });
-    if (!riesgo.enRiesgo) {
-      continue;
-    }
-    const dedup = `saldo-${c.id}-${riesgo.periodoDedup}`;
-    if (await yaNotificado(medplum, dedup)) {
+  let enviados48 = 0;
+  let enviados2 = 0;
+  let omitidos = 0;
+  for (const [groupId, appt] of grupos) {
+    const inicio = new Date(appt.start!);
+    const tipo = recordatorioDue(inicio, ahora);
+    if (!tipo) {
       continue;
     }
 
-    const ses = saldo.restantes === 1 ? '1 sesión' : `${saldo.restantes} sesiones`;
-    const cierre =
-      estado.tipo === 'membresia'
-        ? `el mes cierra en ${riesgo.diasRestantes} ${riesgo.diasRestantes === 1 ? 'día' : 'días'} y no se acumulan`
-        : `tu paquete vence en ${riesgo.diasRestantes} ${riesgo.diasRestantes === 1 ? 'día' : 'días'}`;
-    const body = `BioWellness: te quedan ${ses} sin agendar y ${cierre}. ¿Coordinamos para no perderlas? 💚`;
-    const pacienteRef = c.beneficiary?.reference;
+    // Idempotencia: un recordatorio por (tipo, grupo).
+    const key = `recordatorio-${tipo}-${groupId}`;
+    const existente = await medplum.searchOne('Communication', `identifier=${SYSTEM.communication}|${key}`);
+    if (existente) {
+      omitidos++;
+      continue;
+    }
+
+    const pacienteRef = appt.participant?.find((p) => p.actor?.reference?.startsWith('Patient/'))?.actor?.reference;
+    const descripcion = (appt.description ?? 'tu turno').split(' · ')[0] ?? 'tu turno';
 
     await enviarWhatsApp(medplum, event.secrets, {
-      template: 'saldo-en-riesgo',
-      body,
+      template: `recordatorio-${tipo}`,
+      identifier: key,
       pacienteRef,
-      about: `Coverage/${c.id}`,
-      identifier: { system: SYSTEM.recordatorio, value: dedup },
+      body: cuerpo(tipo, descripcion, inicio),
     });
-    await enviarEmail(medplum, {
-      template: 'saldo-en-riesgo',
-      asunto: 'Tenés sesiones por aprovechar en BioWellness',
-      cuerpo: body,
-      pacienteRef,
-      about: `Coverage/${c.id}`,
-    });
-    saldos++;
+
+    if (tipo === '2h') {
+      enviados2++;
+    } else {
+      enviados48++;
+    }
   }
 
-  return { ok: true, turnos24h, turnos1h, saldos };
+  return { ok: true, enviados48, enviados2, omitidos };
 }

@@ -19,6 +19,7 @@ deployan al runtime **`awslambda`** de Medplum (configurable con la env
 | `bw-webhook-mercadopago` | Webhook de MP: verifica el pago contra la API de MP y confirma el turno automáticamente al acreditarse. | URL pública que llama MercadoPago. |
 | `bw-asignar-plan` | Asigna una membresía/paquete: crea el `Coverage`, emite el cobro inicial y envía WhatsApp de bienvenida. | `executeBot` desde el front (Atender → Planes). |
 | `bw-cobro-membresias` | **Cron días 1-5:** renueva cada membresía activa (reset de sesiones + cobro mensual + WhatsApp). | `cronTimer` del Bot (a diario). |
+| `bw-recordatorios` | **Cron:** recuerda los turnos confirmados a 48 h y 2 h por WhatsApp. | `cronTimer` del Bot (cada ~30 min). |
 | `bw-enviar-whatsapp` | Envía WhatsApp (Twilio) y registra `Communication`. | `executeBot` por evento o manual. |
 | `bw-recordatorios` | **Cron horario:** recordatorios de turno (24h/1h) y de saldo en riesgo, por WhatsApp **y** email. | `cronTimer` del Bot (cada hora). |
 
@@ -144,57 +145,26 @@ El reset/cobro mensual lo dispara el `cronTimer` del Bot en Medplum. Configurarl
 El propio bot decide si actúa (días 1-5 y ciclo no facturado), así que correrlo
 todos los días es seguro e idempotente.
 
-## Recordatorios (`bw-recordatorios`)
+## Recordatorios automáticos (48 h / 2 h)
 
-Cron pensado para correr **cada hora**. En cada corrida hace dos cosas y manda
-**WhatsApp + email** por cada aviso:
+`bw-recordatorios` avisa por WhatsApp antes de cada turno **confirmado**
+(`booked`): una vez ~48 h antes y otra ~2 h antes. La lógica de "qué recordatorio
+toca" es pura (`src/lib/recordatorios.ts`, testeada): usa ventanas hacia abajo
+(falta ≤ 2 h → recordatorio de 2 h; falta ≤ 48 h y > 2 h → el de 48 h), así que si
+una corrida del cron se saltea, el siguiente tick lo manda igual.
 
-1. **Recordatorio de turno** — avisa **24h** y **1h** antes de cada turno
-   confirmado (`status=booked`). Los combos (varios `Appointment` con el mismo
-   `identifier` de combo) se agrupan en **una visita** → un solo aviso, no uno por
-   componente.
-2. **Saldo en riesgo** — cuando quedan **sesiones libres por perderse pronto**
-   (membresía: al cerrar el mes; paquete: al vencer), invita a agendar. La ventana
-   es configurable (`ventanaSaldoDias`, default **7** días).
-
-La decisión de **qué** avisar es lógica pura y testeada (`src/lib/recordatorios.ts`:
-`hitosEnVentana`, `riesgoDeSaldo`); el bot solo orquesta (busca, agrupa, envía).
-
-**Idempotencia:** cada aviso lleva un `Communication.identifier` único
-(`turno-<visita>-24h`, `saldo-<coverage>-<ciclo>`, …). Antes de enviar, el bot
-chequea si ya existe (`yaNotificado`) → **no reenvía** aunque el cron corra muchas
-veces, ni siquiera si el canal estaba caído (la `Communication` ya quedó grabada).
+- **Idempotente:** cada recordatorio queda como `Communication` con identifier
+  `recordatorio-{tipo}-{grupo}`. Antes de enviar, el bot busca ese identifier; si
+  existe, no reenvía. Por eso es seguro correrlo cada pocos minutos.
+- **Combos:** se manda **un** recordatorio por combo (el componente que arranca
+  primero), no uno por sesión (se agrupan por el identifier de combo).
 
 ### Cron de `bw-recordatorios`
 
-Configurar **una vez** el `cronTimer` del Bot en Medplum (Bot → propiedad
-`cronTimer`), expresión horaria:
-
-```
-0 * * * *
-```
-
-Correrlo seguido es seguro (idempotente). Acepta `ventanaSaldoDias` y `ahora`
-(fecha de referencia) por input, útil para reprocesos/pruebas.
-
-### Probar
-
-1. **Sin red, en código:** `npx vitest run tests/recordatorios.test.ts
-   tests/comunicaciones.test.ts` valida los hitos/saldo en riesgo, el agrupado de
-   combos y que **solo se envía con la config completa** (si no, queda
-   `preparation`).
-2. **En Medplum, sin enviar nada real:** ejecutá el bot a mano y revisá las
-   `Communication` que crea (quedan en `preparation` si no hay secretos):
-   ```bash
-   npx medplum bot execute bw-recordatorios '{}'
-   # o forzando una fecha:
-   npx medplum bot execute bw-recordatorios '{"ahora":"2026-06-22T09:00:00-03:00"}'
-   ```
-   Devuelve `{ ok, turnos24h, turnos1h, saldos }`. Buscá las `Communication`
-   filtrando por el identifier `…/Identifier/recordatorio`.
-3. **Envío real (a un número/email de prueba):** cargá los Project Secrets de
-   Twilio + verificá el remitente SES, poné tu teléfono/email en un `Patient` con
-   un turno a <24h (o una membresía con saldo a fin de mes) y reejecutá el bot.
+Configurar el `cronTimer` del Bot **una vez** (p. ej. `*/30 * * * *` = cada 30
+min). Cuanto más seguido corra, más cerca de las 48 h / 2 h exactas sale el aviso;
+la idempotencia evita duplicados. Necesita los mismos secretos de Twilio que
+`bw-enviar-whatsapp`.
 
 ## Invocación desde el front
 

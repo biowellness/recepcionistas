@@ -30,6 +30,13 @@ export const CANCELACION = {
   minHoras: 24,
 } as const;
 
+/**
+ * Recordatorios automáticos de turnos confirmados (cron + WhatsApp).
+ * Se avisa a las 48 h y a las 2 h del turno. El orden importa: de mayor a menor
+ * antelación (el motor elige el más urgente que aún no se envió).
+ */
+export const RECORDATORIO_HORAS = [48, 2] as const;
+
 /** Membresías (R-09..R-12). */
 export const MEMBRESIA = {
   sesionesStandard: 8,
