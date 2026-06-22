@@ -90,10 +90,32 @@ export const POLICY_TERAPEUTA: AccessPolicy = {
   ],
 };
 
+/** Nombre canónico de la policy del portal del paciente (lo usa el bot de invitación). */
+export const NOMBRE_POLICY_PACIENTE = 'Paciente — Portal';
+
+/**
+ * Paciente — Portal: el paciente sólo ve **lo suyo** (turnos, pagos, plan,
+ * mensajes) y su demografía, todo de lectura. No ve datos clínicos ni de otros
+ * pacientes (lo no listado queda denegado). `%patient` se liga al perfil del
+ * usuario logueado (su propio Patient).
+ */
+export const POLICY_PACIENTE_PORTAL: AccessPolicy = {
+  resourceType: 'AccessPolicy',
+  name: NOMBRE_POLICY_PACIENTE,
+  resource: [
+    { resourceType: 'Patient', readonly: true, criteria: 'Patient?_id=%patient.id' },
+    { resourceType: 'Appointment', readonly: true, criteria: 'Appointment?patient=%patient' },
+    { resourceType: 'Invoice', readonly: true, criteria: 'Invoice?subject=%patient' },
+    { resourceType: 'Coverage', readonly: true, criteria: 'Coverage?beneficiary=%patient' },
+    { resourceType: 'Communication', readonly: true, criteria: 'Communication?subject=%patient' },
+  ],
+};
+
 export const ACCESS_POLICIES: AccessPolicy[] = [
   POLICY_RECEPCIONISTA,
   POLICY_DIRECTOR_MEDICO,
   POLICY_MEDICO_PRESCRIPTOR,
   POLICY_ENFERMERA,
   POLICY_TERAPEUTA,
+  POLICY_PACIENTE_PORTAL,
 ];

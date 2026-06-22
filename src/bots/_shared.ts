@@ -14,6 +14,19 @@ import type { ReservaRecurso } from '../lib/reglas-turno.js';
 
 type Secrets = BotEvent['secrets'];
 
+/** Project id del proyecto Medplum (vía el recurso Basic de configuración). */
+export async function resolverProjectId(medplum: MedplumClient): Promise<string> {
+  const fromProfile = medplum.getProfile()?.meta?.project;
+  if (fromProfile) {
+    return fromProfile;
+  }
+  const basic = await medplum.searchOne('Basic', `identifier=${CONFIG_TC_ID}`);
+  if (basic?.meta?.project) {
+    return basic.meta.project;
+  }
+  throw new Error('No pude determinar el projectId del proyecto Medplum.');
+}
+
 /** TC vigente: del recurso Basic de configuración; si no hay, el default. */
 export async function leerTcVigente(medplum: MedplumClient): Promise<number> {
   try {
@@ -37,7 +50,14 @@ export async function leerTcVigente(medplum: MedplumClient): Promise<number> {
 export async function enviarWhatsApp(
   medplum: MedplumClient,
   secrets: Secrets,
-  params: { template: string; body: string; pacienteRef?: string; to?: string; identifier?: string },
+  params: {
+    template: string;
+    body: string;
+    pacienteRef?: string;
+    to?: string;
+    identifier?: { system: string; value: string };
+    about?: string;
+  },
 ): Promise<Communication> {
   let to = params.to;
   if (!to && params.pacienteRef) {
@@ -71,7 +91,8 @@ export async function enviarWhatsApp(
     resourceType: 'Communication',
     status,
     sent: new Date().toISOString(),
-    ...(params.identifier ? { identifier: [{ system: SYSTEM.communication, value: params.identifier }] } : {}),
+    ...(params.identifier ? { identifier: [params.identifier] } : {}),
+    ...(params.about ? { about: [{ reference: params.about }] } : {}),
     ...(params.pacienteRef
       ? { subject: { reference: params.pacienteRef }, recipient: [{ reference: params.pacienteRef }] }
       : {}),
@@ -126,12 +147,6 @@ export async function enviarEmail(
       { url: EXT.templateUsado, valueString: params.template },
     ],
   });
-}
-
-/** ¿Ya se registró una Communication con este identifier de recordatorio? (idempotencia del cron). */
-export async function yaNotificado(medplum: MedplumClient, valor: string): Promise<boolean> {
-  const existente = await medplum.searchOne('Communication', `identifier=${SYSTEM.recordatorio}|${valor}`);
-  return Boolean(existente);
 }
 
 /** Códigos de contraindicación activos de un Flag. */

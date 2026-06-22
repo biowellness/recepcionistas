@@ -105,7 +105,7 @@ export async function handler(
 
     await enviarWhatsApp(medplum, event.secrets, {
       template: `recordatorio-${tipo}`,
-      identifier: key,
+      identifier: { system: SYSTEM.communication, value: key },
       pacienteRef,
       body: cuerpo(tipo, descripcion, inicio),
     });

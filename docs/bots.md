@@ -20,6 +20,8 @@ deployan al runtime **`awslambda`** de Medplum (configurable con la env
 | `bw-asignar-plan` | Asigna una membresía/paquete: crea el `Coverage`, emite el cobro inicial y envía WhatsApp de bienvenida. | `executeBot` desde el front (Atender → Planes). |
 | `bw-cobro-membresias` | **Cron días 1-5:** renueva cada membresía activa (reset de sesiones + cobro mensual + WhatsApp). | `cronTimer` del Bot (a diario). |
 | `bw-recordatorios` | **Cron:** recuerda los turnos confirmados a 48 h y 2 h por WhatsApp. | `cronTimer` del Bot (cada ~30 min). |
+| `bw-alta-paciente` | Alta de cliente: crea/actualiza el `Patient` (dedupe por DNI/email/teléfono). | `executeBot` (Atender → Nuevo paciente). |
+| `bw-invitar-paciente` | Invita al paciente al **portal** (invite de Medplum) y entrega el link por WhatsApp/email/QR. **Requiere admin.** | `executeBot` (Atender → Invitar al portal). |
 | `bw-enviar-whatsapp` | Envía WhatsApp (Twilio) y registra `Communication`. | `executeBot` por evento o manual. |
 | `bw-recordatorios` | **Cron horario:** recordatorios de turno (24h/1h) y de saldo en riesgo, por WhatsApp **y** email. | `cronTimer` del Bot (cada hora). |
 
@@ -165,6 +167,39 @@ Configurar el `cronTimer` del Bot **una vez** (p. ej. `*/30 * * * *` = cada 30
 min). Cuanto más seguido corra, más cerca de las 48 h / 2 h exactas sale el aviso;
 la idempotencia evita duplicados. Necesita los mismos secretos de Twilio que
 `bw-enviar-whatsapp`.
+
+## Alta e invitación de pacientes (onboarding)
+
+Dos pasos **separados** (la recepción puede dar de alta sin invitar, e invitar
+después):
+
+1. **Alta** (`bw-alta-paciente`): crea el `Patient` (nombre, DNI, teléfono, email).
+   Deduplica por DNI → email → teléfono (no crea duplicados). No da login.
+   No requiere admin (la recepción ya escribe `Patient`).
+2. **Invitación al portal** (`bw-invitar-paciente`): le da acceso de login para ver
+   **lo suyo** (turnos/plan/pagos). Usa el **invite de Medplum** con
+   `sendEmail:false` + `upsert:true` (reusa el `Patient` existente por email, no
+   duplica) y la AccessPolicy **"Paciente — Portal"**. Recupera el link mágico
+   (`/setpassword/{id}/{secret}`) y lo entrega por el canal elegido:
+   - **whatsapp** → Twilio;
+   - **email** → mail BioWellness (SES, `medplum.sendEmail`);
+   - **qr** → devuelve el link y el front lo dibuja como **QR** (client-side, el
+     link nunca sale a un tercero).
+
+   El link apunta al **portal del paciente** (FooMedical, `bio.medplum.com.ar`),
+   no a la app de recepción. Se configura con el secret **`PORTAL_BASE_URL`**
+   (default `https://bio.medplum.com.ar`).
+
+### Requisitos para invitar
+
+- `bw-invitar-paciente` debe tener **admin del proyecto** (el invite es endpoint de
+  administración). Asignar admin a su `ProjectMembership` en Medplum (igual que se
+  crean los bots). Sin admin, el bot devuelve un aviso claro.
+- Que exista la AccessPolicy **"Paciente — Portal"** (corré `npm run seed`).
+- Para alinear con el **auto-registro** del portal ("Crear cuenta"), conviene que
+  el **default patient access policy** del proyecto Medplum sea también
+  "Paciente — Portal" (así el paciente que se registra solo y el invitado quedan
+  con el mismo alcance).
 
 ## Invocación desde el front
 

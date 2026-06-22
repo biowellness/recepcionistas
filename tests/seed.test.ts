@@ -7,7 +7,7 @@ const seed = buildSeed();
 describe('Seed — composición', () => {
   it('Construye los grupos de recursos esperados', () => {
     expect(seed.structureDefinitions.length).toBeGreaterThanOrEqual(28);
-    expect(seed.accessPolicies.length).toBe(5);
+    expect(seed.accessPolicies.length).toBe(6); // 5 roles internos + Paciente — Portal
     expect(seed.activityDefinitions.length).toBe(36); // 33 + 3 consultas médicas
     expect(seed.combos.length).toBe(9);
     expect(seed.membresias.length).toBe(10);
