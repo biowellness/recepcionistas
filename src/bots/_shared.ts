@@ -128,9 +128,13 @@ export async function enviarEmail(
     try {
       await medplum.sendEmail({ to, subject: params.asunto, text: params.cuerpo });
       status = 'completed';
-    } catch {
+    } catch (err) {
+      // Visible en CloudWatch (Lambda) para diagnosticar SES sin adivinar.
+      console.error('enviarEmail: SES/medplum.sendEmail falló:', err instanceof Error ? err.message : err);
       status = 'entered-in-error';
     }
+  } else {
+    console.warn('enviarEmail: sin destinatario (el paciente no tiene email).');
   }
 
   return medplum.createResource<Communication>({

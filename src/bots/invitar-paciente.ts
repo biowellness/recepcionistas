@@ -120,27 +120,35 @@ export async function handler(
     }
 
     // Entrega por el canal elegido (qr: lo muestra el front con el link devuelto).
+    // `enviado` refleja el envío REAL (status de la Communication), no el intento.
     let enviado = false;
+    let avisoCanal: string | undefined;
     if (e.canal === 'whatsapp') {
-      await enviarWhatsApp(medplum, event.secrets, {
+      const comm = await enviarWhatsApp(medplum, event.secrets, {
         template: 'invitacion-portal',
         pacienteRef: e.pacienteRef,
         body: mensajeInvitacion(display, link).texto,
       });
-      enviado = true;
+      enviado = comm.status === 'completed';
+      if (!enviado) {
+        avisoCanal = 'El acceso se creó y el link está listo, pero el WhatsApp no salió (revisá Twilio / teléfono). Podés compartir el link por otro canal.';
+      }
     } else if (e.canal === 'email') {
       const m = mensajeInvitacion(display, link);
-      await enviarEmail(medplum, {
+      const comm = await enviarEmail(medplum, {
         to: email,
         asunto: m.asunto,
         cuerpo: m.texto,
         template: 'invitacion-portal',
         pacienteRef: e.pacienteRef,
       });
-      enviado = true;
+      enviado = comm.status === 'completed';
+      if (!enviado) {
+        avisoCanal = 'El acceso se creó y el link está listo, pero el email no salió (revisá SES). Podés compartir el link por otro canal.';
+      }
     }
 
-    return { ok: true, canal: e.canal, membershipId: membership.id, link, enviado };
+    return { ok: true, canal: e.canal, membershipId: membership.id, link, enviado, mensaje: avisoCanal };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'No se pudo invitar al paciente.';
     const forbidden = /forbidden/i.test(msg);
