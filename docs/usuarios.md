@@ -71,3 +71,6 @@ Hay dos caminos para que un paciente tenga acceso, y conviene que ambos usen la
 
 > El link de invitación apunta al **portal** (`PORTAL_BASE_URL`,
 > default `bio.medplum.com.ar`), no a la app de recepción.
+
+> Contrato de integración reception ↔ portal (checklist a verificar en el repo
+> `biowellness/portal`): ver [`docs/portal-integracion.md`](portal-integracion.md).
