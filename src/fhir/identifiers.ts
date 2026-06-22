@@ -66,6 +66,9 @@ export const EXT = {
   // Communication
   canal: `${BASE}/StructureDefinition/canal`,
   templateUsado: `${BASE}/StructureDefinition/template-usado`,
+  // Onboarding / invitación al portal
+  /** Canal elegido para invitar al paciente al portal (whatsapp / email / qr). */
+  canalInvitacion: `${BASE}/StructureDefinition/canal-invitacion`,
 } as const;
 
 /** Sistemas de codificación / identificadores de negocio. */
@@ -81,6 +84,8 @@ export const SYSTEM = {
   invoice: `${BASE}/Identifier/invoice`,
   /** Identifier de Communication (para deduplicar recordatorios automáticos). */
   communication: `${BASE}/Identifier/communication`,
+  /** Documento (DNI) del paciente, para deduplicar altas. */
+  dni: `${BASE}/Identifier/dni`,
   config: `${BASE}/Identifier/config`,
 } as const;
 

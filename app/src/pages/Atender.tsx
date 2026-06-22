@@ -23,6 +23,7 @@ import {
   IconCalendarPlus,
   IconInfoCircle,
   IconLicense,
+  IconUserPlus,
 } from '@tabler/icons-react';
 import type { Patient, Invoice } from '@medplum/fhirtypes';
 import { getDisplayString } from '@medplum/core';
@@ -38,6 +39,8 @@ import {
 } from '../lib/bots';
 import { cargarPlanesActivos, planUsable, type PlanPaciente } from '../lib/planes';
 import { PreAgendaModal } from '../components/PreAgendaModal';
+import { InvitarPortal } from '../components/InvitarPortal';
+import { NuevoPacienteModal } from '../components/NuevoPacienteModal';
 import { SERVICIOS } from '@bw/config/catalogo';
 import { COMBOS } from '@bw/config/combos';
 import { MEMBRESIAS } from '@bw/config/membresias';
@@ -58,6 +61,7 @@ export function Atender({
   const [resultados, setResultados] = useState<Patient[] | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [seleccionado, setSeleccionado] = useState<Patient | null>(null);
+  const [altaAbierta, setAltaAbierta] = useState(false);
 
   useEffect(() => {
     if (!pacienteInicialId) {
@@ -94,9 +98,26 @@ export function Atender({
     }
   }
 
+  async function abrirReciénCreado(patientId: string): Promise<void> {
+    const p = await medplum.readResource('Patient', patientId);
+    setResultados(null);
+    setSeleccionado(p);
+  }
+
   return (
     <Stack gap="lg">
-      <Title order={2}>Atender paciente</Title>
+      <Group justify="space-between" align="center">
+        <Title order={2}>Atender paciente</Title>
+        <Button variant="light" leftSection={<IconUserPlus size={16} />} onClick={() => setAltaAbierta(true)}>
+          Nuevo paciente
+        </Button>
+      </Group>
+
+      <NuevoPacienteModal
+        abierto={altaAbierta}
+        onCerrar={() => setAltaAbierta(false)}
+        onCreado={(id) => void abrirReciénCreado(id)}
+      />
 
       <Group align="flex-end">
         <TextInput
@@ -160,6 +181,7 @@ function FichaPaciente({ paciente, onVolver }: { paciente: Patient; onVolver: ()
         </Button>
       </Group>
       <BannerSeguridad pacienteId={paciente.id!} />
+      <InvitarPortal paciente={paciente} />
       <PanelPlanes paciente={paciente} planes={planes} onCambio={recargarPlanes} />
       <PanelReserva paciente={paciente} planes={planes} onReservado={recargarPlanes} />
       <PanelCobro paciente={paciente} />

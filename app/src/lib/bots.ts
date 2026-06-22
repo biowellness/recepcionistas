@@ -184,3 +184,47 @@ export async function asignarPlan(input: AsignarPlanInput): Promise<ResultadoAsi
   const id = await botIdPorNombre('bw-asignar-plan');
   return (await medplum.executeBot(id, input)) as ResultadoAsignarPlan;
 }
+
+export interface AltaPacienteInput {
+  nombre?: string;
+  firstName?: string;
+  lastName?: string;
+  dni?: string;
+  email?: string;
+  telefono?: string;
+  tipoCliente?: string;
+}
+
+export interface ResultadoAltaPaciente {
+  ok: boolean;
+  mensaje?: string;
+  patientId?: string;
+  creado?: boolean;
+}
+
+/** Da de alta (o actualiza, sin duplicar) el paciente. No le da acceso al portal. */
+export async function altaPaciente(input: AltaPacienteInput): Promise<ResultadoAltaPaciente> {
+  const id = await botIdPorNombre('bw-alta-paciente');
+  return (await medplum.executeBot(id, input)) as ResultadoAltaPaciente;
+}
+
+export type CanalInvitacion = 'whatsapp' | 'email' | 'qr';
+
+export interface ResultadoInvitarPaciente {
+  ok: boolean;
+  mensaje?: string;
+  canal?: CanalInvitacion;
+  membershipId?: string;
+  link?: string;
+  enviado?: boolean;
+}
+
+/** Invita al paciente al portal por el canal elegido (WhatsApp / email / QR). */
+export async function invitarPaciente(
+  pacienteRef: string,
+  canal: CanalInvitacion,
+  email?: string,
+): Promise<ResultadoInvitarPaciente> {
+  const id = await botIdPorNombre('bw-invitar-paciente');
+  return (await medplum.executeBot(id, { pacienteRef, canal, email })) as ResultadoInvitarPaciente;
+}
