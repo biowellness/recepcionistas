@@ -37,7 +37,7 @@ export async function leerTcVigente(medplum: MedplumClient): Promise<number> {
 export async function enviarWhatsApp(
   medplum: MedplumClient,
   secrets: Secrets,
-  params: { template: string; body: string; pacienteRef?: string; to?: string },
+  params: { template: string; body: string; pacienteRef?: string; to?: string; identifier?: string },
 ): Promise<Communication> {
   let to = params.to;
   if (!to && params.pacienteRef) {
@@ -71,6 +71,7 @@ export async function enviarWhatsApp(
     resourceType: 'Communication',
     status,
     sent: new Date().toISOString(),
+    ...(params.identifier ? { identifier: [{ system: SYSTEM.communication, value: params.identifier }] } : {}),
     ...(params.pacienteRef
       ? { subject: { reference: params.pacienteRef }, recipient: [{ reference: params.pacienteRef }] }
       : {}),

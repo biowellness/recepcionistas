@@ -19,6 +19,7 @@ deployan al runtime **`awslambda`** de Medplum (configurable con la env
 | `bw-webhook-mercadopago` | Webhook de MP: verifica el pago contra la API de MP y confirma el turno automáticamente al acreditarse. | URL pública que llama MercadoPago. |
 | `bw-asignar-plan` | Asigna una membresía/paquete: crea el `Coverage`, emite el cobro inicial y envía WhatsApp de bienvenida. | `executeBot` desde el front (Atender → Planes). |
 | `bw-cobro-membresias` | **Cron días 1-5:** renueva cada membresía activa (reset de sesiones + cobro mensual + WhatsApp). | `cronTimer` del Bot (a diario). |
+| `bw-recordatorios` | **Cron:** recuerda los turnos confirmados a 48 h y 2 h por WhatsApp. | `cronTimer` del Bot (cada ~30 min). |
 | `bw-enviar-whatsapp` | Envía WhatsApp (Twilio) y registra `Communication`. | `executeBot` por evento o manual. |
 
 ## Deploy
@@ -116,6 +117,27 @@ El reset/cobro mensual lo dispara el `cronTimer` del Bot en Medplum. Configurarl
 **una vez** (Bot → propiedad `cronTimer`, p. ej. `0 9 * * *` = 09:00 a diario).
 El propio bot decide si actúa (días 1-5 y ciclo no facturado), así que correrlo
 todos los días es seguro e idempotente.
+
+## Recordatorios automáticos (48 h / 2 h)
+
+`bw-recordatorios` avisa por WhatsApp antes de cada turno **confirmado**
+(`booked`): una vez ~48 h antes y otra ~2 h antes. La lógica de "qué recordatorio
+toca" es pura (`src/lib/recordatorios.ts`, testeada): usa ventanas hacia abajo
+(falta ≤ 2 h → recordatorio de 2 h; falta ≤ 48 h y > 2 h → el de 48 h), así que si
+una corrida del cron se saltea, el siguiente tick lo manda igual.
+
+- **Idempotente:** cada recordatorio queda como `Communication` con identifier
+  `recordatorio-{tipo}-{grupo}`. Antes de enviar, el bot busca ese identifier; si
+  existe, no reenvía. Por eso es seguro correrlo cada pocos minutos.
+- **Combos:** se manda **un** recordatorio por combo (el componente que arranca
+  primero), no uno por sesión (se agrupan por el identifier de combo).
+
+### Cron de `bw-recordatorios`
+
+Configurar el `cronTimer` del Bot **una vez** (p. ej. `*/30 * * * *` = cada 30
+min). Cuanto más seguido corra, más cerca de las 48 h / 2 h exactas sale el aviso;
+la idempotencia evita duplicados. Necesita los mismos secretos de Twilio que
+`bw-enviar-whatsapp`.
 
 ## Invocación desde el front
 
