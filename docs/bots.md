@@ -192,14 +192,24 @@ después):
 
 ### Requisitos para invitar
 
-- `bw-invitar-paciente` debe tener **admin del proyecto** (el invite es endpoint de
-  administración). Asignar admin a su `ProjectMembership` en Medplum (igual que se
-  crean los bots). Sin admin, el bot devuelve un aviso claro.
+- `bw-invitar-paciente` debe tener **admin del proyecto**. Lo necesita por **dos**
+  motivos: (1) el *invite* es endpoint de administración; (2) **enviar email** vía
+  `medplum.sendEmail()` también exige membership admin. El server Medplum gatea el
+  endpoint de email con `project.features incluye "email"` **Y**
+  `ctx.membership.admin === true` (verificado en el código de Medplum). Por eso el
+  mismo bot admin cubre invite + email. Asignar admin a su `ProjectMembership` en
+  Medplum (igual que se crean los bots). Sin admin, devuelve un aviso claro.
+- Que el proyecto tenga la **feature `email`** habilitada (super admin).
 - Que exista la AccessPolicy **"Paciente — Portal"** (corré `npm run seed`).
 - Para alinear con el **auto-registro** del portal ("Crear cuenta"), conviene que
   el **default patient access policy** del proyecto Medplum sea también
   "Paciente — Portal" (así el paciente que se registra solo y el invitado quedan
   con el mismo alcance).
+
+> **Diagnóstico de email:** `npm run email:test -- correo@dominio` prueba la cadena
+> Medplum→SES. Si da `Forbidden`, la membership usada **no es admin** (requisito de
+> Medplum para email). SES en sí se prueba aparte con la CLI de AWS
+> (`aws sesv2 send-email …`).
 
 ## Invocación desde el front
 

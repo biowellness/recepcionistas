@@ -61,6 +61,9 @@ async function main(): Promise<void> {
     console.error(err);
     console.error(
       '\nPistas según el mensaje:\n' +
+        '  • "Forbidden" (OperationOutcome id "forbidden") → la membership que envía NO es admin.\n' +
+        '    Medplum exige project.features incluya "email" Y ctx.membership.admin === true.\n' +
+        '    Hacé admin a la ClientApplication del .env (o al bot que manda el email).\n' +
         '  • "Email address is not verified" → verificar la identidad (dominio o from) en SES, MISMA región del server.\n' +
         '  • "...not authorized to perform ses:SendEmail" → falta permiso IAM al rol del server Medplum (EC2).\n' +
         '  • Destinatario no llega y la cuenta está en sandbox → sacar SES del sandbox (o verificar el destinatario).\n' +
