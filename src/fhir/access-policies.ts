@@ -109,8 +109,9 @@ export const NOMBRE_POLICY_PACIENTE = 'Paciente — Portal';
  * Catálogo, agenda y profesionales: sólo lectura (para mostrar la oferta).
  *
  * Reservar un turno NO se hace escribiendo `Appointment` directo: el modelo es de
- * **solicitud** (el paciente pide y Recepción confirma con los bots), por eso
- * `Appointment` es de sólo lectura para el paciente.
+ * **solicitud** (el paciente ejecuta solo el bot `bw-solicitar-turno`, que crea un
+ * `Task`, y Recepción confirma con los bots de reserva), por eso `Appointment` es de
+ * sólo lectura y el acceso a `Bot` está acotado a ese único bot.
  *
  * IMPORTANTE — fuente de verdad: esta definición es la que aplica `npm run seed`
  * (upsert por `name`). Debe mantenerse en sincronía con su **espejo** de
@@ -134,6 +135,9 @@ export const POLICY_PACIENTE_PORTAL: AccessPolicy = {
     { resourceType: 'CarePlan', readonly: true, criteria: 'CarePlan?subject=%patient' },
     { resourceType: 'MedicationRequest', readonly: true, criteria: 'MedicationRequest?patient=%patient' },
     { resourceType: 'Immunization', readonly: true, criteria: 'Immunization?patient=%patient' },
+    // Solicitudes de turno propias (las crea el bot; el paciente solo las lee).
+    // `patient` mapea a Task.for (que el bot setea al paciente).
+    { resourceType: 'Task', readonly: true, criteria: 'Task?patient=%patient' },
     // Catálogo, agenda y profesionales — sólo lectura (para mostrar la oferta).
     { resourceType: 'ObservationDefinition', readonly: true },
     { resourceType: 'Questionnaire', readonly: true },
@@ -143,6 +147,9 @@ export const POLICY_PACIENTE_PORTAL: AccessPolicy = {
     { resourceType: 'Practitioner', readonly: true },
     { resourceType: 'Organization', readonly: true },
     { resourceType: 'Binary', readonly: true },
+    // Reserva por solicitud: el paciente solo puede ejecutar ESTE bot (crea el Task
+    // de solicitud y avisa a Recepción). No puede ejecutar ningún otro bot.
+    { resourceType: 'Bot', readonly: true, criteria: 'Bot?name=bw-solicitar-turno' },
   ],
 };
 

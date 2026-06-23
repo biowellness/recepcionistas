@@ -87,6 +87,14 @@ export const SYSTEM = {
   /** Documento (DNI) del paciente, para deduplicar altas. */
   dni: `${BASE}/Identifier/dni`,
   config: `${BASE}/Identifier/config`,
+  /** Tipo de Task (p. ej. solicitud de turno desde el portal). */
+  taskTipo: `${BASE}/CodeSystem/task-tipo`,
+} as const;
+
+/** Códigos de negocio puntuales. */
+export const COD = {
+  /** Task.code de una solicitud de turno creada desde el portal del paciente. */
+  solicitudTurno: 'solicitud-turno',
 } as const;
 
 /** Clave del recurso de configuración de Tipo de Cambio (Basic). */
