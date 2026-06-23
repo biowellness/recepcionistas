@@ -34,9 +34,58 @@ El link de invitación apunta al portal vía el secret **`PORTAL_BASE_URL`**
    `Patient` no se comparten y la integración no funciona.
    → revisar config del `MedplumClient` / `projectId` / variables de entorno.
 
-2. **Ruta `/setpassword/:id/:secret`.** Debe existir (es la `SetPasswordPage` de
-   `@medplum/react`); es a donde apunta el link de las invitaciones.
-   → buscar `setpassword` en el router del portal.
+2. **Ruta `/setpassword/:id/:secret` — FALTA en el portal (verificado).**
+   `app.medplum.com.ar/setpassword/...` funciona (es la app admin de Medplum), pero
+   `bio.medplum.com.ar/setpassword/...` **no**: el portal no tiene esa ruta.
+   `@medplum/react` **no** exporta un `SetPasswordPage`/`SetPasswordForm` listo, así
+   que hay que agregar una página propia que haga `POST auth/setpassword`.
+
+   **El link correcto es el portal** (branded, un solo dominio). Hay que sumar la
+   ruta al portal (debe ser **pública**, accesible SIN login, junto a signin/register):
+
+   ```tsx
+   // SetPasswordPage.tsx (portal)
+   import { PasswordInput, Button, Title, Stack, Alert } from '@mantine/core';
+   import { normalizeErrorString } from '@medplum/core';
+   import { Document, Form, Logo, useMedplum } from '@medplum/react';
+   import { useState } from 'react';
+   import { useParams, useNavigate } from 'react-router-dom';
+
+   export function SetPasswordPage(): JSX.Element {
+     const { id, secret } = useParams() as { id: string; secret: string };
+     const medplum = useMedplum();
+     const navigate = useNavigate();
+     const [error, setError] = useState<string>();
+     return (
+       <Document width={450}>
+         <Form onSubmit={async (formData) => {
+           if (formData.password !== formData.confirm) { setError('No coinciden'); return; }
+           try {
+             await medplum.post('auth/setpassword', { id, secret, password: formData.password });
+             navigate('/signin');
+           } catch (err) { setError(normalizeErrorString(err)); }
+         }}>
+           <Stack><Logo size={32} /><Title>Elegí tu contraseña</Title>
+             <PasswordInput name="password" label="Nueva contraseña" required />
+             <PasswordInput name="confirm" label="Repetir contraseña" required />
+             {error && <Alert color="red">{error}</Alert>}
+             <Button type="submit">Guardar</Button>
+           </Stack>
+         </Form>
+       </Document>
+     );
+   }
+   ```
+   ```tsx
+   // en el router del portal (zona pública, sin guard de sesión):
+   <Route path="/setpassword/:id/:secret" element={<SetPasswordPage />} />
+   ```
+   Referencia canónica: `medplum/packages/app/src/SetPasswordPage.tsx` (open source).
+
+   **Stopgap** mientras no exista la ruta: setear el Project Secret
+   `PORTAL_BASE_URL=https://app.medplum.com.ar` (el link funciona, pero el paciente
+   queda en la app admin de Medplum tras fijar la clave). Volver a `bio` al agregar
+   la ruta.
 
 3. **Default patient access policy = "Paciente — Portal".** Para que el
    auto-registrado y el invitado queden con el **mismo** alcance, configurar en el
