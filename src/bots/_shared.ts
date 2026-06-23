@@ -112,7 +112,16 @@ export async function enviarWhatsApp(
  */
 export async function enviarEmail(
   medplum: MedplumClient,
-  params: { asunto: string; cuerpo: string; template: string; pacienteRef?: string; to?: string; about?: string },
+  params: {
+    asunto: string;
+    cuerpo: string;
+    template: string;
+    pacienteRef?: string;
+    to?: string;
+    about?: string;
+    /** Remitente con nombre visible (debe ser una identidad SES verificada). */
+    from?: string;
+  },
 ): Promise<Communication> {
   let to = params.to;
   if (!to && params.pacienteRef) {
@@ -126,7 +135,12 @@ export async function enviarEmail(
   let status: Communication['status'] = 'preparation';
   if (to) {
     try {
-      await medplum.sendEmail({ to, subject: params.asunto, text: params.cuerpo });
+      await medplum.sendEmail({
+        to,
+        subject: params.asunto,
+        text: params.cuerpo,
+        ...(params.from ? { from: params.from } : {}),
+      });
       status = 'completed';
     } catch (err) {
       // Visible en CloudWatch (Lambda) para diagnosticar SES sin adivinar.
