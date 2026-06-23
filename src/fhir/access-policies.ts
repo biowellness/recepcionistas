@@ -94,20 +94,55 @@ export const POLICY_TERAPEUTA: AccessPolicy = {
 export const NOMBRE_POLICY_PACIENTE = 'Paciente — Portal';
 
 /**
- * Paciente — Portal: el paciente sólo ve **lo suyo** (turnos, pagos, plan,
- * mensajes) y su demografía, todo de lectura. No ve datos clínicos ni de otros
- * pacientes (lo no listado queda denegado). `%patient` se liga al perfil del
+ * Paciente — Portal: el paciente accede **sólo a lo suyo** desde el portal
+ * (bio.medplum.com.ar). Ve su agenda, plan, pagos y mensajes, y —ejerciendo su
+ * derecho de acceso a sus propios datos— su historia (laboratorio, biomarcadores,
+ * vacunas, medicación, plan de cuidado, consentimientos). Lo no listado queda
+ * denegado; nunca ve datos de otros pacientes. `%patient` se liga al perfil del
  * usuario logueado (su propio Patient).
+ *
+ * Alcance dentro de su compartimento:
+ *  - **Escribe** (autogestión): su perfil, las observaciones/vitales que él carga,
+ *    sus respuestas de cuestionarios, sus consentimientos y sus mensajes.
+ *  - **Sólo lee**: agenda, cobertura/plan, facturas y su historia clínica (esa la
+ *    genera el equipo médico, no el paciente).
+ * Catálogo, agenda y profesionales: sólo lectura (para mostrar la oferta).
+ *
+ * Reservar un turno NO se hace escribiendo `Appointment` directo: el modelo es de
+ * **solicitud** (el paciente pide y Recepción confirma con los bots), por eso
+ * `Appointment` es de sólo lectura para el paciente.
+ *
+ * IMPORTANTE — fuente de verdad: esta definición es la que aplica `npm run seed`
+ * (upsert por `name`). Debe mantenerse en sincronía con su **espejo** de
+ * documentación en el portal: `portal/docs/medplum/access-policy-paciente-portal.json`.
  */
 export const POLICY_PACIENTE_PORTAL: AccessPolicy = {
   resourceType: 'AccessPolicy',
   name: NOMBRE_POLICY_PACIENTE,
   resource: [
-    { resourceType: 'Patient', readonly: true, criteria: 'Patient?_id=%patient.id' },
-    { resourceType: 'Appointment', readonly: true, criteria: 'Appointment?patient=%patient' },
-    { resourceType: 'Invoice', readonly: true, criteria: 'Invoice?subject=%patient' },
+    // Compartimento propio — autogestión (lectura/escritura).
+    { resourceType: 'Patient', criteria: 'Patient?_id=%patient.id' },
+    { resourceType: 'Observation', criteria: 'Observation?subject=%patient' },
+    { resourceType: 'QuestionnaireResponse', criteria: 'QuestionnaireResponse?subject=%patient' },
+    { resourceType: 'DocumentReference', criteria: 'DocumentReference?subject=%patient' },
+    { resourceType: 'Communication', criteria: 'Communication?subject=%patient' },
+    // Compartimento propio — sólo lectura (lo gestiona Recepción / el equipo médico).
+    { resourceType: 'Appointment', readonly: true, criteria: 'Appointment?actor=%patient' },
     { resourceType: 'Coverage', readonly: true, criteria: 'Coverage?beneficiary=%patient' },
-    { resourceType: 'Communication', readonly: true, criteria: 'Communication?subject=%patient' },
+    { resourceType: 'Invoice', readonly: true, criteria: 'Invoice?subject=%patient' },
+    { resourceType: 'DiagnosticReport', readonly: true, criteria: 'DiagnosticReport?subject=%patient' },
+    { resourceType: 'CarePlan', readonly: true, criteria: 'CarePlan?subject=%patient' },
+    { resourceType: 'MedicationRequest', readonly: true, criteria: 'MedicationRequest?patient=%patient' },
+    { resourceType: 'Immunization', readonly: true, criteria: 'Immunization?patient=%patient' },
+    // Catálogo, agenda y profesionales — sólo lectura (para mostrar la oferta).
+    { resourceType: 'ObservationDefinition', readonly: true },
+    { resourceType: 'Questionnaire', readonly: true },
+    { resourceType: 'Schedule', readonly: true },
+    { resourceType: 'Slot', readonly: true },
+    { resourceType: 'HealthcareService', readonly: true },
+    { resourceType: 'Practitioner', readonly: true },
+    { resourceType: 'Organization', readonly: true },
+    { resourceType: 'Binary', readonly: true },
   ],
 };
 
