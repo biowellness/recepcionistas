@@ -26,8 +26,13 @@ ve **solo lo suyo** vía la AccessPolicy **"Paciente — Portal"**
   idéntico. `Coverage`/`Invoice`/`Appointment` son de **solo lectura** para el
   paciente; escribe solo su autogestión (perfil, vitales, cuestionarios,
   consentimientos, mensajes).
-- **Reserva**: decidida como *solicitud* (no escribe `Appointment` ni ejecuta bots
-  el paciente). Pendiente de implementar (ver handoff del portal).
+- **Reserva por *solicitud* (implementada).** El paciente pide desde el portal y se
+  crea un `Task` (`code=solicitud-turno`) vía el bot **`bw-solicitar-turno`**
+  (lógica pura en `src/lib/solicitudes.ts`), que avisa a Recepción por WhatsApp
+  (secret `RECEPCION_WHATSAPP_TO`). La app de recepción tiene la vista **"Solicitudes"**
+  para atenderlas y confirmarlas con los bots de reserva. El paciente solo **lee** sus
+  `Task` y solo puede **ejecutar** ese bot (AccessPolicy acotada). No escribe agenda.
+  Para activarlo: `npm run deploy:bots` + `npm run seed` + secret `RECEPCION_WHATSAPP_TO`.
 
 ## Cómo se conectan (hoy)
 
@@ -116,12 +121,13 @@ El link de invitación apunta al portal vía el secret **`PORTAL_BASE_URL`**
    vive en `src/fhir/access-policies.ts` (fuente de verdad del seed) y su espejo en
    `portal/docs/medplum/access-policy-paciente-portal.json`.
 
-   **Reserva = modelo de solicitud** (decidido): el paciente **no** crea
-   `Appointment` ni ejecuta bots; por eso `Appointment` es de solo lectura. Cuando
-   se implemente la solicitud (recomendado `Task`/`Communication`), sumar ese
-   recurso a la policy. Si más adelante se opta por reserva inmediata por bots
-   (`bw-reservar-turno`/`bw-reservar-combo`), antes endurecerlos para derivar el
-   paciente del login (no del input) y habilitar la ejecución solo de esos bots.
+   **Reserva = modelo de solicitud** (implementado): el paciente **no** crea
+   `Appointment` ni ejecuta bots de reserva. La policy le suma `Task` de solo lectura
+   (`Task?patient=%patient`) y `Bot` acotado a `bw-solicitar-turno`
+   (`Bot?name=bw-solicitar-turno`) — el único bot que puede ejecutar. Si más adelante
+   se opta por reserva inmediata por bots (`bw-reservar-turno`/`bw-reservar-combo`),
+   antes endurecerlos para derivar el paciente del login (no del input) y habilitar la
+   ejecución solo de esos bots.
 
 5. **Branding/seguridad** ya consistente (theme BioWellness en `bio.medplum.com.ar`).
    Verificar `recaptchaSiteKey`/`googleClientId` si el registro los usa.
