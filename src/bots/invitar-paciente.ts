@@ -135,12 +135,16 @@ export async function handler(
       }
     } else if (e.canal === 'email') {
       const m = mensajeInvitacion(display, link);
+      // Remitente con marca (la dirección sigue siendo la identidad SES verificada).
+      // Configurable con el secret EMAIL_FROM.
+      const from = event.secrets['EMAIL_FROM']?.valueString ?? 'BioWellness San Isidro <hola@medplum.com.ar>';
       const comm = await enviarEmail(medplum, {
         to: email,
         asunto: m.asunto,
         cuerpo: m.texto,
         template: 'invitacion-portal',
         pacienteRef: e.pacienteRef,
+        from,
       });
       enviado = comm.status === 'completed';
       if (!enviado) {
