@@ -96,10 +96,12 @@ export async function enviarWhatsApp(
     ...(params.pacienteRef
       ? { subject: { reference: params.pacienteRef }, recipient: [{ reference: params.pacienteRef }] }
       : {}),
-    payload: [{ contentString: params.body }],
+    // payload solo si hay cuerpo: un payload sin content[x] es FHIR inválido.
+    ...(params.body ? { payload: [{ contentString: params.body }] } : {}),
     extension: [
       { url: EXT.canal, valueCode: 'whatsapp' },
-      { url: EXT.templateUsado, valueString: params.template },
+      // templateUsado solo si hay template: una extensión sin valor viola ext-1.
+      ...(params.template ? [{ url: EXT.templateUsado, valueString: params.template }] : []),
     ],
   });
 }
@@ -159,10 +161,12 @@ export async function enviarEmail(
     ...(params.pacienteRef
       ? { subject: { reference: params.pacienteRef }, recipient: [{ reference: params.pacienteRef }] }
       : {}),
-    payload: [{ contentString: params.cuerpo }],
+    // payload solo si hay cuerpo: un payload sin content[x] es FHIR inválido.
+    ...(params.cuerpo ? { payload: [{ contentString: params.cuerpo }] } : {}),
     extension: [
       { url: EXT.canal, valueCode: 'email' },
-      { url: EXT.templateUsado, valueString: params.template },
+      // templateUsado solo si hay template: una extensión sin valor viola ext-1.
+      ...(params.template ? [{ url: EXT.templateUsado, valueString: params.template }] : []),
     ],
   });
 }

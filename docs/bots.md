@@ -68,10 +68,16 @@ spamear a nadie. Estados resultantes:
 - `TWILIO_ACCOUNT_SID`
 - `TWILIO_AUTH_TOKEN`
 - `TWILIO_WHATSAPP_FROM` (formato `whatsapp:+549...`)
+- `RECEPCION_WHATSAPP_TO` (número de Recepción, para el aviso de **solicitudes** del portal)
 
 El destinatario sale de `Patient.telecom` (teléfono/SMS). El WhatsApp se dispara
 automático **al reservar** (turno tentativo), **al pagar la seña** (confirmado),
 **al renovar la membresía** y en los **recordatorios** (ver abajo).
+
+> **Diagnóstico de WhatsApp:** `npm run whatsapp:test -- +5491122334455` ejecuta el
+> bot `bw-enviar-whatsapp` en el server (lee los Project Secrets reales) y reporta
+> el `status` de la `Communication`: `completed` (Twilio aceptó), `preparation`
+> (falta algún secret) o `entered-in-error` (Twilio rechazó: sandbox/FROM/número).
 
 ### Email (AWS SES)
 

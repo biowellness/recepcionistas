@@ -20,6 +20,7 @@
     "bots:bundle": "tsx src/seed/deploy-bots.ts --dry-run",
     "deploy:bots": "tsx src/seed/deploy-bots.ts",
     "email:test": "tsx src/seed/diagnostico-email.ts",
+    "whatsapp:test": "tsx src/seed/diagnostico-whatsapp.ts",
     "verify": "npm run typecheck && npm run test",
     "dev": "npm run dev --workspace @biowellness/recepcion-app",
     "build:app": "npm run build --workspace @biowellness/recepcion-app",
