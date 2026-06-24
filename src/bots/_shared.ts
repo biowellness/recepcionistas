@@ -14,6 +14,51 @@ import type { ReservaRecurso } from '../lib/reglas-turno.js';
 
 type Secrets = BotEvent['secrets'];
 
+/** Meta de datos de demostración (tag `demo`); se autodestruyen a las 48 h. */
+export const META_DEMO = { tag: [{ system: SYSTEM.demo, code: 'demo' }] };
+
+/** Tipos demo, en orden de borrado: hijos antes que padres (evita refs colgadas). */
+const TIPOS_DEMO = ['Communication', 'Invoice', 'Coverage', 'Flag', 'Appointment', 'Slot', 'Patient'] as const;
+
+export interface ResultadoBorradoDemo {
+  borrados: number;
+  porTipo: Record<string, number>;
+}
+
+/**
+ * Borra recursos etiquetados `demo`. Si se pasa `antesDe` (ISO), borra solo los
+ * más viejos que esa fecha (`_lastUpdated < antesDe`) — así el cron elimina los
+ * que ya cumplieron 48 h. Sin `antesDe`, borra TODOS los demo. Nunca toca datos
+ * sin el tag demo.
+ */
+export async function borrarRecursosDemo(
+  medplum: MedplumClient,
+  opts: { antesDe?: string } = {},
+): Promise<ResultadoBorradoDemo> {
+  const porTipo: Record<string, number> = {};
+  let borrados = 0;
+  for (const tipo of TIPOS_DEMO) {
+    let query = `_tag=${SYSTEM.demo}|demo&_count=1000`;
+    if (opts.antesDe) {
+      query += `&_lastUpdated=lt${opts.antesDe}`;
+    }
+    const recursos = await medplum.searchResources(tipo, query);
+    for (const r of recursos) {
+      if (!r.id) {
+        continue;
+      }
+      try {
+        await medplum.deleteResource(tipo, r.id);
+        porTipo[tipo] = (porTipo[tipo] ?? 0) + 1;
+        borrados++;
+      } catch {
+        // referenciado o ya borrado: seguir
+      }
+    }
+  }
+  return { borrados, porTipo };
+}
+
 /** Project id del proyecto Medplum (vía el recurso Basic de configuración). */
 export async function resolverProjectId(medplum: MedplumClient): Promise<string> {
   const fromProfile = medplum.getProfile()?.meta?.project;

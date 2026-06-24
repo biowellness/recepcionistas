@@ -86,6 +86,8 @@ export const SYSTEM = {
   communication: `${BASE}/Identifier/communication`,
   /** Documento (DNI) del paciente, para deduplicar altas. */
   dni: `${BASE}/Identifier/dni`,
+  /** Tag de datos de demostración (se autodestruyen a las 48 h). */
+  demo: `${BASE}/demo`,
   config: `${BASE}/Identifier/config`,
   /** Tipo de Task (p. ej. solicitud de turno desde el portal). */
   taskTipo: `${BASE}/CodeSystem/task-tipo`,
