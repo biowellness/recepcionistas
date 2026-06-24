@@ -22,6 +22,7 @@ deployan al runtime **`awslambda`** de Medplum (configurable con la env
 | `bw-recordatorios` | **Cron:** recuerda los turnos confirmados a 48 h y 2 h por WhatsApp. | `cronTimer` del Bot (cada ~30 min). |
 | `bw-alta-paciente` | Alta de cliente: crea/actualiza el `Patient` (dedupe por DNI/email/teléfono). | `executeBot` (Atender → Nuevo paciente). |
 | `bw-invitar-paciente` | Invita al paciente al **portal** (invite de Medplum) y entrega el link por WhatsApp/email/QR. **Requiere admin.** | `executeBot` (Atender → Invitar al portal). |
+| `bw-limpiar-demo` | **Cron:** borra los datos demo (tag `demo`) con más de 48 h. | `cronTimer` del Bot (cada ~1 h). |
 | `bw-enviar-whatsapp` | Envía WhatsApp (Twilio) y registra `Communication`. | `executeBot` por evento o manual. |
 | `bw-recordatorios` | **Cron horario:** recordatorios de turno (24h/1h) y de saldo en riesgo, por WhatsApp **y** email. | `cronTimer` del Bot (cada hora). |
 
@@ -210,6 +211,28 @@ después):
 > Medplum→SES. Si da `Forbidden`, la membership usada **no es admin** (requisito de
 > Medplum para email). SES en sí se prueba aparte con la CLI de AWS
 > (`aws sesv2 send-email …`).
+
+## Datos de demostración (autodestrucción a las 48 h)
+
+Para ver la app con datos (pacientes, turnos en varios estados, planes, un Flag de
+contraindicación, cobros y comunicaciones):
+
+```bash
+npm run datos-demo                       # limpia demo previa y genera datos nuevos
+npm run datos-demo -- --limpiar          # borra TODOS los datos demo
+npm run datos-demo -- --limpiar-vencidos # borra solo los demo de > 48 h
+```
+
+Todo lo creado lleva `meta.tag = demo` (system `https://biowellness.ar/demo`). La
+limpieza borra **solo** lo etiquetado demo (por `_tag` + `_lastUpdated`); **nunca**
+toca datos reales.
+
+**Autodestrucción:** el bot **`bw-limpiar-demo`** (cron, p. ej. `0 * * * *` cada
+hora) borra los demo cuyo `_lastUpdated` supere las 48 h. Configurar su `cronTimer`
+una vez en Medplum. Sin el cron, igual podés limpiar a mano con `--limpiar`.
+
+> El bot que borra necesita permiso de borrado sobre esos tipos (admin de proyecto
+> o una AccessPolicy con delete). La generación se hace por script, no por bot.
 
 ## Invocación desde el front
 
