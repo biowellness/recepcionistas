@@ -67,4 +67,3 @@ export function mensajeInvitacion(nombre: string, link: string): MensajeInvitaci
       `Si no solicitaste esto, podés ignorar este mensaje.`,
   };
 }
-}
