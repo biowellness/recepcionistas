@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
 import '@medplum/react/styles.css';
+import './brand.css';
 import { MantineProvider, ColorSchemeScript } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { MedplumProvider } from '@medplum/react';
