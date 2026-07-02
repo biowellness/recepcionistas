@@ -91,31 +91,43 @@ export async function handler(
       membership: { accessPolicy: { reference: `AccessPolicy/${policy.id}` } },
     })) as ProjectMembership;
 
-    // Recuperar el link mágico (UserSecurityRequest recién creado para ese usuario).
-    // El link va al PORTAL del paciente (FooMedical en bio.medplum.com.ar), no a la
-    // app de recepción. Configurable con el secret PORTAL_BASE_URL.
+    // Recuperar el link mágico (UserSecurityRequest del usuario). El server lo crea
+    // SOLO para usuarios nuevos: si el usuario ya existía (upsert / reinvitación),
+    // pedimos uno nuevo con auth/resetpassword (sendEmail:false, flujo custom de
+    // Medplum) y reintentamos. El link va al PORTAL del paciente (PORTAL_BASE_URL).
     const userId = membership.user?.reference?.split('/')[1];
     const baseUrl = event.secrets['PORTAL_BASE_URL']?.valueString ?? 'https://bio.medplum.com.ar';
-    let link: string | undefined;
-    if (userId) {
-      // UserSecurityRequest no está en el union tipado de búsqueda: vía REST directo.
+
+    // UserSecurityRequest no está en el union tipado de búsqueda: vía REST directo.
+    const buscarLink = async (): Promise<string | undefined> => {
+      if (!userId) {
+        return undefined;
+      }
       const bundle = (await medplum.get(
         `fhir/R4/UserSecurityRequest?user=User/${userId}&_sort=-_lastUpdated&_count=1`,
       )) as Bundle<UserSecurityRequest>;
       const usr = bundle.entry?.[0]?.resource;
-      if (usr?.id && usr.secret) {
-        link = linkSetPassword(baseUrl, usr.id, usr.secret);
-      }
+      return usr?.id && usr.secret && !usr.used ? linkSetPassword(baseUrl, usr.id, usr.secret) : undefined;
+    };
+
+    let link = await buscarLink();
+    if (!link) {
+      // Usuario existente (reinvitación): generar una solicitud nueva sin email nativo.
+      await medplum
+        .post('auth/resetpassword', { email, sendEmail: false, projectId })
+        .catch((err) => console.warn('invitar-paciente: auth/resetpassword falló:', (err as Error).message));
+      link = await buscarLink();
     }
 
     if (!link) {
+      console.error(`invitar-paciente: sin UserSecurityRequest legible para User/${userId} (¿usuario server-scoped de una invitación vieja?).`);
       return {
         ok: true,
         canal: e.canal,
         membershipId: membership.id,
         mensaje:
-          'Se creó el acceso, pero no pude generar el link automáticamente. ' +
-          'Revisá que el bot tenga permiso de lectura de UserSecurityRequest.',
+          'Se creó el acceso, pero no pude generar el link de activación. ' +
+          'El paciente puede usar "¿Olvidaste tu contraseña?" en el portal, o borrá el User viejo en Medplum y reinvitá.',
       };
     }
 
