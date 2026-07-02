@@ -34,6 +34,11 @@ export function App(): JSX.Element {
 
 function Login(): JSX.Element {
   const googleClientId = import.meta.env.GOOGLE_CLIENT_ID;
+  if (!googleClientId) {
+    // Diagnóstico visible en DevTools: el botón de Google solo aparece si el
+    // build se hizo con GOOGLE_CLIENT_ID en app/.env.
+    console.warn('[Login] GOOGLE_CLIENT_ID no está en el build: no se muestra "Acceder con Google". Definilo en app/.env y rebuildeá.');
+  }
   return (
     <Center mih="100vh" bg="bio.0">
       <Paper withBorder shadow="md" p="xl" radius="lg" w={420} bg="white">
