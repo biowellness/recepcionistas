@@ -2,10 +2,11 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 
-// Hosts permitidos al servir el front detrás de un dominio (dev y preview).
-// El punto inicial habilita el dominio y todos sus subdominios:
-// ".biowellness.ar" cubre "recepcion.biowellness.ar".
-const ALLOWED_HOSTS = ['.biowellness.ar', '.medplum.com.ar', 'localhost', '127.0.0.1'];
+// Chequeo de host de Vite (protección anti DNS-rebinding del dev server).
+// `true` = aceptar cualquier Host: esta app se sirve detrás de nuestros propios
+// dominios (que ya cambiaron una vez: medplum.com.ar → biowellness.ar) y el
+// bloqueo "Blocked request. This host is not allowed" volvía con cada cambio.
+const ALLOWED_HOSTS = true as const;
 
 export default defineConfig(({ mode }) => {
   // Vite lee las variables de app/.env (este directorio), NO del .env de la raíz.
