@@ -1,0 +1,10 @@
+/* Look & feel BioWellness: fondo crema cálido en modo claro. */
+[data-mantine-color-scheme='light'] body {
+  background-color: var(--mantine-color-bio-0);
+}
+
+/* Encabezado con un tinte cálido sutil en claro. */
+[data-mantine-color-scheme='light'] .mantine-AppShell-header {
+  background-color: color-mix(in srgb, var(--mantine-color-bio-0) 70%, white);
+  border-bottom-color: var(--mantine-color-bio-2);
+}

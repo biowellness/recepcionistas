@@ -34,7 +34,7 @@ export function Shell({ vista, onVista, children }: ShellProps): JSX.Element {
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between" wrap="nowrap">
           <Group gap="xs" wrap="nowrap">
-            <Title order={3} c="teal.7">
+            <Title order={3} c="bio.7">
               BioWellness
             </Title>
             <Text c="dimmed" size="sm" visibleFrom="sm">

@@ -3,7 +3,7 @@
 const COLOR: Record<string, string> = {
   pending: 'yellow',
   proposed: 'yellow',
-  booked: 'indigo',
+  booked: 'bio',
   arrived: 'orange',
   'checked-in': 'teal',
   fulfilled: 'gray',

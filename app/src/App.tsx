@@ -35,21 +35,22 @@ export function App(): JSX.Element {
 }
 
 function Login(): JSX.Element {
+  const googleClientId = import.meta.env.GOOGLE_CLIENT_ID;
   return (
-    <Center mih="100vh" bg="gray.0">
-      <Paper withBorder shadow="md" p="xl" radius="lg" w={420}>
+    <Center mih="100vh" bg="bio.0">
+      <Paper withBorder shadow="md" p="xl" radius="lg" w={420} bg="white">
         <Stack gap="md">
           <Stack gap={2} align="center">
-            <Title order={2} c="teal.7">
+            <Title order={2} c="bio.7">
               BioWellness
             </Title>
             <Text c="dimmed" size="sm">
               Recepción · San Isidro
             </Text>
           </Stack>
-          <SignInForm onSuccess={() => undefined}>
+          <SignInForm onSuccess={() => undefined} googleClientId={googleClientId}>
             <Text ta="center" size="sm" c="dimmed">
-              Ingresá con tu cuenta
+              Ingresá con tu cuenta {googleClientId ? 'o con Google' : ''}
             </Text>
           </SignInForm>
         </Stack>
