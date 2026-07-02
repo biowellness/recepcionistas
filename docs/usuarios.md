@@ -29,12 +29,32 @@ La recepción sí ve: agenda (`Appointment`/`Slot`/`Schedule`), pagos
    ```
 2. En la app de Medplum (admin del proyecto): **Project → Admin → Users → Invite
    new user**:
-   - Nombre y email.
+   - Nombre y email (p. ej. `recepcion@biowellness.ar`).
    - **Role:** Practitioner.
    - **Access Policy:** `Recepción — Operativo`.
    - **Admin: NO.**
-3. La persona recibe un email, setea su contraseña e ingresa en
-   `recepcion.medplum.com.ar`.
+3. La persona recibe un email, setea su contraseña e ingresa en la app de
+   recepción (`recepcion.biowellness.ar`).
+
+## Login con Google (Gmail)
+
+El botón **"Sign in with Google"** del login aparece **solo si el front se buildea
+con `GOOGLE_CLIENT_ID`** (Vite lo embebe en el bundle). Checklist completo:
+
+1. **Google Cloud Console** → OAuth Client (tipo *Web application*):
+   - **Authorized JavaScript origins:** `https://recepcion.biowellness.ar`
+     (y cualquier otro dominio desde el que se sirva el front).
+2. **Server Medplum (EC2)** → config del server: `googleClientId` (+
+   `googleClientSecret`) con ese mismo client ID, y reiniciar. Sin esto, el
+   `POST auth/google` rechaza el login aunque el botón aparezca.
+3. **Front** → `app/.env` en la máquina donde se buildea:
+   ```
+   GOOGLE_CLIENT_ID=<client-id>.apps.googleusercontent.com
+   ```
+   y **rebuild + redeploy** (`npm run build:app`). Sin rebuild no aparece el botón.
+4. **El usuario debe existir** en el proyecto con ese email (invitado como arriba).
+   Google es solo el método de login: Medplum matchea el `User` por email
+   (p. ej. `recepcion@biowellness.ar`); no da acceso por sí solo.
 
 ## Otros roles (definidos en el seed)
 
