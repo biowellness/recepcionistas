@@ -18,6 +18,22 @@ Config por env (prefijos expuestos al browser: `MEDPLUM_`, `GOOGLE_`,
 así que el login sobrevive al refresh. **Sin login** se muestra el formulario de
 ingreso; el resto del UI requiere sesión.
 
+## Producción: nginx sirviendo el build estático (recomendado)
+
+En producción NO usar `vite dev`/`preview`: buildear y servir `app/dist/` como
+estáticos con nginx. Así desaparecen el chequeo de `allowedHosts` y el websocket
+de HMR, y el front queda cacheado y comprimido.
+
+Config lista para copiar: [`deploy/nginx-recepcion.conf`](../deploy/nginx-recepcion.conf)
+(instrucciones de instalación en el encabezado del archivo). Flujo de update:
+
+```bash
+git pull && npm run build:app     # nginx no se toca: sirve el dist nuevo al instante
+```
+
+> `GOOGLE_CLIENT_ID` (y cualquier env del front) debe estar en `app/.env`
+> **al momento del build** — con estáticos no hay proceso que lo lea después.
+
 ## Estructura
 
 - `app/src/pages/` — una por vista (Agenda, Planes y sesiones, Atender, Reportes).
